@@ -21,6 +21,7 @@ void parseName(Parser &parser);
 void parseOS2(Parser &parser);
 void parsePost(const quint32 end, Parser &parser);
 void parseStat(Parser &parser);
+void parseVorg(Parser &parser);
 
 IndexToLocFormat parseHeadIndexToLocFormat(ShadowParser parser);
 quint16 parseMaxpNumberOfGlyphs(ShadowParser parser);

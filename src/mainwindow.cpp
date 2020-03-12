@@ -59,6 +59,7 @@ static void parse(const QByteArray &fontData, TreeModel *model)
         else if (tag == "OS/2") table = "OS/2 and Windows Metrics Table";
         else if (tag == "post") table = "PostScript Table";
         else if (tag == "STAT") table = "Style Attributes Table";
+        else if (tag == "VORG") table = "Vertical Origin Table";
         else table = "Unknown Table";
 
         parser.beginGroup(table, tag.toString());
@@ -143,6 +144,8 @@ static void parse(const QByteArray &fontData, TreeModel *model)
             parsePost(table.end(), parser);
         } else if (table.name == "STAT") {
             parseStat(parser);
+        } else if (table.name == "VORG") {
+            parseVorg(parser);
         }
 
         parser.endGroup();

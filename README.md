@@ -28,7 +28,8 @@ maxp,
 name,
 OS/2,
 post,
-STAT (partially)
+STAT (partially),
+VORG
 
 ## License
 
