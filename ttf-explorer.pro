@@ -25,6 +25,7 @@ SOURCES += \
     src/tables/hmtx.cpp \
     src/tables/loca.cpp \
     src/tables/maxp.cpp \
+    src/tables/mvar.cpp \
     src/tables/name.cpp \
     src/tables/os2.cpp \
     src/tables/post.cpp \

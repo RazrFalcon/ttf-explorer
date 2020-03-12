@@ -56,6 +56,7 @@ static void parse(const QByteArray &fontData, TreeModel *model)
         else if (tag == "hmtx") table = "Horizontal Metrics Table";
         else if (tag == "loca") table = "Index to Location Table";
         else if (tag == "maxp") table = "Maximum Profile Table";
+        else if (tag == "MVAR") table = "Metrics Variations Table";
         else if (tag == "name") table = "Naming Table";
         else if (tag == "OS/2") table = "OS/2 and Windows Metrics Table";
         else if (tag == "post") table = "PostScript Table";
@@ -139,6 +140,8 @@ static void parse(const QByteArray &fontData, TreeModel *model)
             parseLoca(numberOfGlyphs, indexToLocFormat, parser);
         } else if (table.name == "maxp") {
             parseMaxp(parser);
+        } else if (table.name == "MVAR") {
+            parseMvar(parser);
         } else if (table.name == "name") {
             parseName(parser);
         } else if (table.name == "OS/2") {
