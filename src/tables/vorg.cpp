@@ -5,7 +5,6 @@ void parseVorg(Parser &parser)
 {
     const auto majorVersion = parser.read<UInt16>("Major version");
     const auto minorVersion = parser.read<UInt16>("Minor version");
-
     if (!(majorVersion == 1 && minorVersion == 0)) {
         throw "invalid table version";
     }

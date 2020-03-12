@@ -3,8 +3,12 @@
 
 void parseFvar(Parser &parser)
 {
-    parser.read<UInt16>("Major version");
-    parser.read<UInt16>("Minor version");
+    const auto majorVersion = parser.read<UInt16>("Major version");
+    const auto minorVersion = parser.read<UInt16>("Minor version");
+    if (!(majorVersion == 1 && minorVersion == 0)) {
+        throw "invalid table version";
+    }
+
     parser.read<Offset16>("Offset to VariationAxisRecord array");
     parser.read<UInt16>("Reserved");
     const auto axesCount = parser.read<UInt16>("The number of variation axes");

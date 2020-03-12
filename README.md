@@ -15,6 +15,7 @@ You also need a C++ compiler with C++17 support.
 
 ## Supported tables
 
+avar,
 CFF (mostly),
 fvar,
 GDEF (partially),

@@ -45,7 +45,8 @@ static void parse(const QByteArray &fontData, TreeModel *model)
         const auto tag = parser.peek<Tag>();
 
         QString table;
-             if (tag == "CFF ") table = "Compact Font Format Table";
+             if (tag == "avar") table = "Axis Variations Table";
+        else if (tag == "CFF ") table = "Compact Font Format Table";
         else if (tag == "fvar") table = "Font Variations Table";
         else if (tag == "GDEF") table = "Glyph Definition Table";
         else if (tag == "glyf") table = "Glyph Data Table";
@@ -103,7 +104,9 @@ static void parse(const QByteArray &fontData, TreeModel *model)
 
         parser.beginGroup(table.title);
 
-        if (table.name == "CFF ") {
+        if (table.name == "avar") {
+            parseAvar(parser);
+        } else if (table.name == "CFF ") {
             parseCff(parser);
         } else if (table.name == "fvar") {
             parseFvar(parser);
