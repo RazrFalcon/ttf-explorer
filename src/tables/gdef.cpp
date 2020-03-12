@@ -5,7 +5,6 @@
 #include "tables.h"
 
 // TODO: ligCaretListOffset
-// TODO: itemVarStoreOffset
 
 static void parseClassDefinitionTable(Parser &parser)
 {
@@ -66,11 +65,12 @@ void parseGdef(Parser &parser)
     const auto markAttachClassDefOffset = parser.read<std::optional<Offset16>>("Offset to class definition table for mark attachment type");
 
     std::optional<Offset16> markGlyphSetsDefOffset = std::nullopt;
+    std::optional<Offset32> varStoreOffset = std::nullopt;
     if (majorVersion == 1 && minorVersion == 2) {
         markGlyphSetsDefOffset = parser.read<std::optional<Offset16>>("Offset to the table of mark glyph set definitions");
     } else if (majorVersion == 1 && minorVersion == 3) {
         markGlyphSetsDefOffset = parser.read<std::optional<Offset16>>("Offset to the table of mark glyph set definitions");
-        parser.read<std::optional<Offset32>>("Offset to the Item Variation Store table");
+        varStoreOffset = parser.read<std::optional<Offset32>>("Offset to the Item Variation Store table");
     } else {
         // TODO: what to do?
     }
@@ -160,6 +160,13 @@ void parseGdef(Parser &parser)
             }
         }
 
+        parser.endGroup();
+    }
+
+    if (varStoreOffset) {
+        parser.jumpTo(start + varStoreOffset.value());
+        parser.beginGroup("Item Variation Store Table");
+        parseItemVariationStore(parser);
         parser.endGroup();
     }
 }
