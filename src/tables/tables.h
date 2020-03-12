@@ -8,6 +8,7 @@ enum class IndexToLocFormat { Short, Long };
 
 void parseAvar(Parser &parser);
 void parseCff(Parser &parser);
+void parseCff2(Parser &parser);
 void parseFvar(Parser &parser);
 void parseGdef(Parser &parser);
 void parseGlyf(const quint16 numberOfGlyphs, const IndexToLocFormat format,

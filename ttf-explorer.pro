@@ -12,6 +12,7 @@ equals(QMAKE_CXX, clang++) {
 SOURCES += \
     src/tables/avar.cpp \
     src/tables/cff.cpp \
+    src/tables/cff2.cpp \
     src/tables/fvar.cpp \
     src/tables/gdef.cpp \
     src/hexview.cpp \

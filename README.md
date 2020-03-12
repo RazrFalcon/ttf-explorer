@@ -17,6 +17,7 @@ You also need a C++ compiler with C++17 support.
 
 avar,
 CFF (mostly),
+CFF2,
 fvar,
 GDEF (partially),
 glyf,

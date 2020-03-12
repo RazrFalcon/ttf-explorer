@@ -5,59 +5,29 @@
 #include "tables.h"
 
 namespace DictOperator {
-    static const quint8 VERSION = 0;
-    static const quint8 NOTICE = 1;
-    static const quint8 FULL_NAME = 2;
-    static const quint8 FAMILY_NAME = 3;
-    static const quint8 WEIGHT = 4;
-    static const quint8 FONT_BBOX = 5;
     static const quint8 BLUE_VALUES = 6;
     static const quint8 OTHER_BLUES = 7;
     static const quint8 FAMILY_BLUES = 8;
     static const quint8 FAMILY_OTHER_BLUES = 9;
     static const quint8 STD_HW = 10;
     static const quint8 STD_VW = 11;
-    static const quint8 UNIQUE_ID = 13;
-    static const quint8 XUID = 14;
-    static const quint8 CHARSER = 15;
-    static const quint8 ENCODING = 16;
     static const quint8 CHAR_STRINGS = 17;
     static const quint8 PRIVATE = 18;
     static const quint8 SUBRS = 19;
-    static const quint8 DEFAULT_WIDTH_X = 20;
-    static const quint8 NOMINAL_WIDTH_X = 21;
+    static const quint8 VS_INDEX = 22;
+    static const quint8 BLEND = 23;
+    static const quint8 VSTORE = 24;
 
-    static const quint16 COPYRIGHT = 1200;
-    static const quint16 IS_FIXED_PITCH = 1201;
-    static const quint16 ITALIC_ANGLE = 1202;
-    static const quint16 UNDERLINE_POSITION = 1203;
-    static const quint16 UNDERLINE_THICKNESS = 1204;
-    static const quint16 PAINT_TYPE = 1205;
-    static const quint16 CHAR_STRING_TYPE = 1206;
     static const quint16 FONT_MATRIX = 1207;
-    static const quint16 STROKE_WIDTH = 1208;
     static const quint16 BLUE_SCALE = 1209;
     static const quint16 BLUE_SHIFT = 1210;
     static const quint16 BLUE_FUZZ = 1211;
     static const quint16 STEM_SNAP_H = 1212;
     static const quint16 STEM_SNAP_V = 1213;
-    static const quint16 FORCE_BOLD = 1214;
     static const quint16 LANGUAGE_GROUP = 1217;
     static const quint16 EXPANSION_FACTOR = 1218;
-    static const quint16 INITIAL_RANDOM_SEED = 1219;
-    static const quint16 SYNTHETIC_BASE = 1220;
-    static const quint16 POST_SCRIPT = 1221;
-    static const quint16 BASE_FONT_NAME = 1222;
-    static const quint16 BASE_FONT_BLEND = 1223;
-    static const quint16 ROS = 1230;
-    static const quint16 CID_FONT_VERSION = 1231;
-    static const quint16 CID_FONT_REVISION = 1232;
-    static const quint16 CID_FONT_TYPE = 1233;
-    static const quint16 CID_COUNT = 1234;
-    static const quint16 UID_BASE = 1235;
     static const quint16 FD_ARRAY = 1236;
     static const quint16 FD_SELECT = 1237;
-    static const quint16 FONT_NAME = 1238;
 }
 
 using namespace CFFCommon;
@@ -67,7 +37,7 @@ static void parseIndex(const QString &name, Parser &parser, Predicate p)
 {
     parser.beginGroup(name);
 
-    const auto count = parser.read<UInt16>("Count");
+    const auto count = parser.read<UInt32>("Count");
     if (count == std::numeric_limits<quint16>::max()) {
         throw "index items count overflow";
     }
@@ -77,12 +47,12 @@ static void parseIndex(const QString &name, Parser &parser, Predicate p)
         return;
     }
 
-    const auto offsetSize = parser.read<OffsetSize>("Offset size");
+    const auto offsetSize = parser.read<CFFCommon::OffsetSize>("Offset size");
 
     parser.beginGroup("Indexes", QString::number(count + 1));
     QVector<quint32> offsets;
     // INDEX has one more index at the end to indicate data length, so we have to add 1 to count.
-    for (auto i = 0; i < count + 1; ++i) {
+    for (quint32 i = 0; i < count + 1; ++i) {
         const auto title = QString("Index %1").arg(i);
         quint32 offset = 0;
         switch (offsetSize.to_bytes()) {
@@ -142,37 +112,16 @@ static Dict parseDict(const quint32 size, Parser &parser)
 
             QString title;
             switch (1200 + op2) {
-                case DictOperator::COPYRIGHT : title = "Copyright"; break;
-                case DictOperator::IS_FIXED_PITCH : title = "Is fixed pitch"; break;
-                case DictOperator::ITALIC_ANGLE : title = "Italic angle"; break;
-                case DictOperator::UNDERLINE_POSITION : title = "Underline position"; break;
-                case DictOperator::UNDERLINE_THICKNESS : title = "Underline thickness"; break;
-                case DictOperator::PAINT_TYPE : title = "Paint type"; break;
-                case DictOperator::CHAR_STRING_TYPE : title = "Charstring type"; break;
                 case DictOperator::FONT_MATRIX : title = "Font matrix"; break;
-                case DictOperator::STROKE_WIDTH : title = "Stroke width"; break;
                 case DictOperator::BLUE_SCALE : title = "Blue scale"; break;
                 case DictOperator::BLUE_SHIFT : title = "Blue shift"; break;
                 case DictOperator::BLUE_FUZZ : title = "Blue fuzz"; break;
                 case DictOperator::STEM_SNAP_H : title = "Stem snap H"; break;
                 case DictOperator::STEM_SNAP_V : title = "Stem snap V"; break;
-                case DictOperator::FORCE_BOLD : title = "Force bold"; break;
                 case DictOperator::LANGUAGE_GROUP : title = "Language group"; break;
                 case DictOperator::EXPANSION_FACTOR : title = "Expansion factor"; break;
-                case DictOperator::INITIAL_RANDOM_SEED : title = "Initial random seed"; break;
-                case DictOperator::SYNTHETIC_BASE : title = "Synthetic base"; break;
-                case DictOperator::POST_SCRIPT : title = "PostScript"; break;
-                case DictOperator::BASE_FONT_NAME : title = "Base font name"; break;
-                case DictOperator::BASE_FONT_BLEND : title = "Base font blend"; break;
-                case DictOperator::ROS : title = "ROS"; break;
-                case DictOperator::CID_FONT_VERSION : title = "CID font version"; break;
-                case DictOperator::CID_FONT_REVISION : title = "CID font revision"; break;
-                case DictOperator::CID_FONT_TYPE : title = "CID font type"; break;
-                case DictOperator::CID_COUNT : title = "CID count"; break;
-                case DictOperator::UID_BASE : title = "UID base"; break;
-                case DictOperator::FD_ARRAY : title = "FD array"; break;
+                case DictOperator::FD_ARRAY : title = "Font DICT INDEX"; break;
                 case DictOperator::FD_SELECT : title = "FD select"; break;
-                case DictOperator::FONT_NAME : title = "Font name"; break;
                 default: break;
             }
 
@@ -190,32 +139,21 @@ static Dict parseDict(const quint32 size, Parser &parser)
             if (parser.offset() != globalEnd) {
                 parser.beginGroup(QString());
             }
-        } else if (op1 <= 21) {
-            // 0..=21 bytes are operators.
-
+        } else if (op1 <= 27) {
             QString title;
             switch (op1) {
-                case DictOperator::VERSION : title = "Version"; break;
-                case DictOperator::NOTICE : title = "Notice"; break;
-                case DictOperator::FULL_NAME : title = "Full name"; break;
-                case DictOperator::FAMILY_NAME : title = "Family name"; break;
-                case DictOperator::WEIGHT : title = "Weight"; break;
-                case DictOperator::FONT_BBOX : title = "Font bbox"; break;
                 case DictOperator::BLUE_VALUES : title = "Blue values"; break;
                 case DictOperator::OTHER_BLUES : title = "Other blues"; break;
                 case DictOperator::FAMILY_BLUES : title = "Family blues"; break;
                 case DictOperator::FAMILY_OTHER_BLUES : title = "Family other blues"; break;
                 case DictOperator::STD_HW : title = "Std HW"; break;
                 case DictOperator::STD_VW : title = "Std VW"; break;
-                case DictOperator::UNIQUE_ID : title = "Unique ID"; break;
-                case DictOperator::XUID : title = "XUID"; break;
-                case DictOperator::CHARSER : title = "charset"; break;
-                case DictOperator::ENCODING : title = "Encoding"; break;
                 case DictOperator::CHAR_STRINGS : title = "CharStrings"; break;
                 case DictOperator::PRIVATE : title = "Private"; break;
                 case DictOperator::SUBRS : title = "Local subroutines"; break;
-                case DictOperator::DEFAULT_WIDTH_X : title = "Default width X"; break;
-                case DictOperator::NOMINAL_WIDTH_X : title = "Nominal width X"; break;
+                case DictOperator::VS_INDEX : title = "Variation Store index"; break;
+                case DictOperator::BLEND : title = "Blend"; break;
+                case DictOperator::VSTORE : title = "Variation Store offset"; break;
                 default: break;
             }
 
@@ -276,6 +214,8 @@ static Dict parseDict(const quint32 size, Parser &parser)
             parser.readValue(shadow.offset(), "Number", QString::number(n));
 
             currRecord.operands.append(n);
+        } else {
+            parser.read<UInt8>("Unknown");
         }
     }
 
@@ -284,6 +224,11 @@ static Dict parseDict(const quint32 size, Parser &parser)
 
 static void parseSubr(const quint32 start, const quint32 end, const int index, Parser &parser)
 {
+    if (start == end) {
+        // Skip empty.
+        return;
+    }
+
     parser.beginGroup(QString("Subroutine %1").arg(index));
 
     if (start > end) {
@@ -317,50 +262,10 @@ static void parseSubr(const quint32 start, const quint32 end, const int index, P
         } else if (b0 == 10) {
             parser.read<UInt8>("Call local subroutine (callsubr)");
         } else if (b0 == 11) {
-            parser.read<UInt8>("Return (return)");
+            parser.read<UInt8>("Reserved");
         } else if (b0 == 12) {
             const auto b1 = parser.peek<UInt8>(2);
-            if (b1 == 3) {
-                parser.read<UInt16>("(and)");
-            } else if (b1 == 4) {
-                parser.read<UInt16>("(or)");
-            } else if (b1 == 5) {
-                parser.read<UInt16>("(not)");
-            } else if (b1 == 9) {
-                parser.read<UInt16>("(abs)");
-            } else if (b1 == 10) {
-                parser.read<UInt16>("(add)");
-            } else if (b1 == 11) {
-                parser.read<UInt16>("(sub)");
-            } else if (b1 == 12) {
-                parser.read<UInt16>("(div)");
-            } else if (b1 == 14) {
-                parser.read<UInt16>("(neg)");
-            } else if (b1 == 15) {
-                parser.read<UInt16>("(eq)");
-            } else if (b1 == 18) {
-                parser.read<UInt16>("(drop)");
-            } else if (b1 == 20) {
-                parser.read<UInt16>("(put)");
-            } else if (b1 == 21) {
-                parser.read<UInt16>("(get)");
-            } else if (b1 == 22) {
-                parser.read<UInt16>("(ifelse)");
-            } else if (b1 == 23) {
-                parser.read<UInt16>("(random)");
-            } else if (b1 == 24) {
-                parser.read<UInt16>("(mul)");
-            } else if (b1 == 26) {
-                parser.read<UInt16>("(sqrt)");
-            } else if (b1 == 27) {
-                parser.read<UInt16>("(dup)");
-            } else if (b1 == 28) {
-                parser.read<UInt16>("(exch)");
-            } else if (b1 == 29) {
-                parser.read<UInt16>("(index)");
-            } else if (b1 == 30) {
-                parser.read<UInt16>("(roll)");
-            } else if (b1 == 34) {
+            if (b1 == 34) {
                 parser.read<UInt16>("Horizontal flex (hflex)");
             } else if (b1 == 35) {
                 parser.read<UInt16>("Flex (flex)");
@@ -374,11 +279,11 @@ static void parseSubr(const quint32 start, const quint32 end, const int index, P
         } else if (b0 == 13) {
             parser.read<UInt8>("Reserved");
         } else if (b0 == 14) {
-            parser.read<UInt8>("Endchar (endchar)");
+            parser.read<UInt8>("Reserved");
         } else if (b0 == 15) {
-            parser.read<UInt8>("Reserved");
+            parser.read<UInt8>("Variation Store index (vsindex)");
         } else if (b0 == 16) {
-            parser.read<UInt8>("Reserved");
+            parser.read<UInt8>("Blend (blend)");
         } else if (b0 == 17) {
             parser.read<UInt8>("Reserved");
         } else if (b0 == 18) {
@@ -433,8 +338,8 @@ static void parseSubr(const quint32 start, const quint32 end, const int index, P
 
             auto shadow = parser.shadow();
             shadow.read<UInt8>(); // skip b0
-            const auto n = shadow.read<UInt32>() / 65536.0;
-            parser.readValue(5, "Number", QString::number(n));
+            const auto n = shadow.read<Fixed>();
+            parser.readValue(5, "Number", QString::number(double(n)));
         }
     }
 
@@ -444,14 +349,12 @@ static void parseSubr(const quint32 start, const quint32 end, const int index, P
     } else if (parser.offset() < globalEnd) {
         // TODO: Padding or something else?
         parser.advance(globalEnd - parser.offset());
-    } else {
-        parser.read<UInt8>("Unknown");
     }
 
     parser.endGroup();
 }
 
-void parseCff(Parser &parser)
+void parseCff2(Parser &parser)
 {
     const auto tableStart = parser.offset();
 
@@ -459,38 +362,34 @@ void parseCff(Parser &parser)
     parser.read<UInt8>("Major version");
     parser.read<UInt8>("Minor version");
     const auto headerSize = parser.read<UInt8>("Header size");
-    parser.read<UInt8>("Absolute offset");
+    const auto topDictSize = parser.read<UInt16>("Length of Top DICT");
     parser.endGroup();
 
-    if (headerSize > 4) {
-        parser.readBytes(headerSize - 4, "Padding");
-    } else if (headerSize < 4) {
+    if (headerSize > 5) {
+        parser.readBytes(headerSize - 5, "Padding");
+    } else if (headerSize < 5) {
         throw "header size is too small";
     }
 
-    parseIndex("Name INDEX", parser, [](const auto start, const auto end, const auto index, auto &parser){
-        parser.readString(end - start, QString("Name %1").arg(index));
-    });
-
-    Dict topDict;
-    parseIndex("Top DICT INDEX", parser, [&](const auto start, const auto end, const auto index, auto &parser){
-        if (index != 0) {
-            throw "Top DICT INDEX should have only one dictionary";
-        }
-
-        topDict = parseDict(end - start, parser);
-    });
-
-    parseIndex("String INDEX", parser, [](const auto start, const auto end, const auto index, auto &parser){
-        parser.readString(end - start, QString("String %1").arg(index));
-    });
+    parser.beginGroup("Top DICT");
+    const auto topDict = parseDict(topDictSize, parser);
+    parser.endGroup();
 
     parseIndex("Global Subr INDEX", parser, parseSubr);
 
-    // TODO: Encodings
-    // TODO: Charsets
-    // TODO: FDSelect
-    // TODO: Font DICT INDEX
+    if (const auto operands = topDict.operands(DictOperator::VSTORE)) {
+        if (operands->size() != 1 || operands->at(0) < 0) {
+            throw "invalid VStore operands";
+        }
+
+        const auto offset = quint32(operands->at(0));
+
+        parser.jumpTo(tableStart + offset);
+        parser.beginGroup("Variation Store");
+        parser.read<UInt16>("Variation Store size");
+        parseItemVariationStore(parser);
+        parser.endGroup();
+    }
 
     if (const auto operands = topDict.operands(DictOperator::CHAR_STRINGS)) {
         if (operands->size() != 1 || operands->at(0) < 0) {
@@ -503,18 +402,46 @@ void parseCff(Parser &parser)
         parseIndex("CharStrings INDEX", parser, parseSubr);
     }
 
-    quint32 local_subrs_offset = 0;
-    if (const auto operands = topDict.operands(DictOperator::PRIVATE)) {
-        if (operands->size() != 2 || operands->at(0) < 0 || operands->at(1) < 0) {
-            throw "invalid Private DICT operands";
+    struct Range
+    {
+        quint32 offset = 0;
+        quint32 size = 0;
+    };
+
+    QVector<Range> privateDictRanges;
+    if (const auto operands = topDict.operands(DictOperator::FD_ARRAY)) {
+        if (operands->size() != 1 || operands->at(0) < 0) {
+            throw "invalid Font DICT INDEX operands";
         }
 
-        const auto size = quint32(operands->at(0));
-        const auto dictOffset = tableStart + quint32(operands->at(1));
+        const auto offset = quint32(operands->at(0));
 
-        parser.jumpTo(dictOffset);
+        parser.jumpTo(tableStart + offset);
+        parseIndex("Font DICT INDEX", parser, [&](const auto start, const auto end, const auto index, auto &parser){
+            parser.beginGroup(QString("DICT %1").arg(index));
+            const auto dict = parseDict(end - start, parser);
+            parser.endGroup();
+
+            if (const auto operands = dict.operands(DictOperator::PRIVATE)) {
+                if (operands->size() != 2 || operands->at(0) < 0 || operands->at(1) < 0) {
+                    throw "invalid Private DICT operands";
+                }
+
+                privateDictRanges.append(Range {
+                    quint32(operands->at(1)),
+                    quint32(operands->at(0))
+                });
+            }
+        });
+    }
+
+    algo::sort_all(privateDictRanges, [](const auto &a, const auto &b){ return a.offset < b.offset; });
+
+    QVector<quint32> subrsOffsets;
+    for (const auto &range : privateDictRanges) {
+        parser.jumpTo(tableStart + range.offset);
         parser.beginGroup("Private DICT");
-        const auto privateDict = parseDict(size, parser);
+        const auto privateDict = parseDict(range.size, parser);
         parser.endGroup();
 
         if (const auto operands = privateDict.operands(DictOperator::SUBRS)) {
@@ -525,12 +452,12 @@ void parseCff(Parser &parser)
             const auto offset = quint32(operands->at(0));
             // 'The local subroutines offset is relative to the beginning
             // of the Private DICT data.'
-            local_subrs_offset = dictOffset + offset;
+            subrsOffsets << tableStart + range.offset + offset;
         }
     }
 
-    if (local_subrs_offset != 0) {
-        parser.jumpTo(local_subrs_offset);
+    for (const auto &offset : subrsOffsets) {
+        parser.jumpTo(offset);
         parseIndex("Local Subr INDEX", parser, parseSubr);
     }
 }
