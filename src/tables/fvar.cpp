@@ -14,7 +14,7 @@ void parseFvar(Parser &parser)
     const auto axesCount = parser.read<UInt16>("The number of variation axes");
     parser.read<UInt16>("The size of VariationAxisRecord");
     const auto instancesCount = parser.read<UInt16>("The number of named instances");
-    parser.read<UInt16>("The size of InstanceRecord");
+    const auto instanceSize = parser.read<UInt16>("The size of InstanceRecord");
 
     parser.beginGroup("Variation axis records");
     for (int i = 0; i < axesCount; ++i) {
@@ -39,7 +39,10 @@ void parseFvar(Parser &parser)
             for (int a = 0; a < axesCount; ++a) {
                 parser.read<Fixed>("Coordinate");
             }
-            parser.read<UInt16>("PostScript name ID"); // TODO: technically optional
+
+            if (instanceSize == 10) {
+                parser.read<UInt16>("PostScript name ID");
+            }
 
             parser.endGroup();
         }
