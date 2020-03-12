@@ -463,7 +463,7 @@ void parseCff(Parser &parser)
     parser.endGroup();
 
     if (headerSize > 4) {
-        parser.readBytes(headerSize - 4, "Padding");
+        parser.advance(headerSize - 4); // Padding
     } else if (headerSize < 4) {
         throw "header size is too small";
     }
