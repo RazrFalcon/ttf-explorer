@@ -407,7 +407,7 @@ public:
     void jumpTo(const quint32 offset)
     {
         if (m_start + offset >= m_end) {
-            throw std::out_of_range("");
+            throw std::out_of_range("out of range");
         }
 
         m_data = m_start + offset;
@@ -427,7 +427,7 @@ public:
     T read()
     {
         if (atEnd(T::Size)) {
-            throw std::out_of_range("");
+            throw std::out_of_range("out of range");
         }
 
         const auto value = T::parse(m_data);
@@ -438,7 +438,7 @@ public:
     gsl::span<const quint8> readBytes(const quint32 size)
     {
         if (atEnd(size)) {
-            throw std::out_of_range("");
+            throw std::out_of_range("out of range");
         }
 
         const auto value = gsl::make_span(m_data, size);
@@ -476,7 +476,7 @@ public:
     void jumpTo(const quint32 offset)
     {
         if (m_start + offset >= m_end) {
-            throw std::out_of_range("");
+            throw std::out_of_range("out of range");
         }
 
         m_data = m_start + offset;
@@ -485,7 +485,7 @@ public:
     void advance(const quint32 size)
     {
         if (m_data + size >= m_end) {
-            throw std::out_of_range("");
+            throw std::out_of_range("out of range");
         }
 
         m_data += size;
@@ -505,7 +505,7 @@ public:
     T read(const QString &title)
     {
         if (atEnd(T::Size)) {
-            throw std::out_of_range("");
+            throw std::out_of_range("out of range");
         }
 
         const auto start = offset();
@@ -527,7 +527,7 @@ public:
     std::optional<Offset16> read(const QString &title)
     {
         if (atEnd(Offset16::Size)) {
-            throw std::out_of_range("");
+            throw std::out_of_range("out of range");
         }
 
         const auto start = offset();
@@ -549,7 +549,7 @@ public:
     std::optional<Offset32> read(const QString &title)
     {
         if (atEnd(Offset32::Size)) {
-            throw std::out_of_range("");
+            throw std::out_of_range("out of range");
         }
 
         const auto start = offset();
@@ -587,10 +587,24 @@ public:
         return value;
     }
 
+    template<typename T>
+    void readArray(const QString &title, const QString &itemTitle, const quint32 size)
+    {
+        if (size == 0) {
+            return;
+        }
+
+        beginGroup(title, QString::number(size));
+        for (quint32 i = 0; i < size; ++i) {
+            read<T>(itemTitle + ' ' + QString::number(i));
+        }
+        endGroup();
+    }
+
     gsl::span<const quint8> readBytes(const quint32 size, const QString &title)
     {
         if (atEnd(size)) {
-            throw std::out_of_range("");
+            throw std::out_of_range("out of range");
         }
 
         const auto start = offset();
@@ -610,7 +624,7 @@ public:
     QString readString(const quint32 size, const QString &title)
     {
         if (atEnd(size)) {
-            throw std::out_of_range("");
+            throw std::out_of_range("out of range");
         }
 
         const auto start = offset();
@@ -631,7 +645,7 @@ public:
     void readValue(const quint32 size, const QString &title, const QString &value)
     {
         if (atEnd(size)) {
-            throw std::out_of_range("");
+            throw std::out_of_range("out of range");
         }
 
         const auto start = offset();
@@ -651,7 +665,7 @@ public:
     T peek(const int offset = 1)
     {
         if (atEnd(quint32(T::Size * offset))) {
-            throw std::out_of_range("");
+            throw std::out_of_range("out of range");
         }
 
         return T::parse(m_data + T::Size * (offset - 1));
@@ -708,7 +722,8 @@ private:
     TreeItem *m_parent;
 };
 
-namespace CFFCommon {
+namespace CFFCommon
+{
     enum class OffsetSizeBytes
     {
         One,
@@ -756,4 +771,54 @@ namespace CFFCommon {
     };
 
     float parseFloat(ShadowParser &parser);
+}
+
+namespace NameCommon
+{
+    static const int WINDOWS_UNICODE_BMP_ENCODING_ID = 1;
+
+    // https://docs.microsoft.com/en-us/typography/opentype/spec/name#platform-ids
+    struct PlatformID
+    {
+        static const int Size = 2;
+        static const QString Type;
+
+        enum ID : qint8
+        {
+            Unicode = 0,
+            Macintosh,
+            Iso,
+            Windows,
+            Custom,
+        };
+
+        static PlatformID parse(const quint8 *data)
+        {
+            const auto value = UInt16::parse(data);
+
+            if (value < 5) {
+                return { static_cast<ID>(value.d) };
+            } else {
+                return { ID::Custom }; // TODO: error
+            }
+        }
+
+        static QString toString(const PlatformID &value)
+        {
+            switch (value.d) {
+                case ID::Unicode : return QLatin1String("Unicode");
+                case ID::Macintosh : return QLatin1String("Macintosh");
+                case ID::Iso : return QLatin1String("ISO");
+                case ID::Windows : return QLatin1String("Windows");
+                case ID::Custom : return QLatin1String("Custom");
+            }
+        }
+
+        operator ID() const { return d; }
+
+        ID d;
+    };
+
+    QString encodingName(const PlatformID platform, const quint16 id);
+    QString languageName(const PlatformID platform, const quint16 id);
 }

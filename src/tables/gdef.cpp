@@ -150,7 +150,7 @@ void parseGdef(Parser &parser)
             parser.endGroup();
 
             std::vector offsetsList(offsetsSet.begin(), offsetsSet.end() );
-            algo::sort_all(offsetsList, [](const auto a, const auto b){ return a < b; });
+            algo::sort_all(offsetsList);
 
             for (const auto &offset : offsetsList) {
                 parser.jumpTo(substart + offset);

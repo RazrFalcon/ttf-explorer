@@ -70,7 +70,19 @@ static void parseIndex(const QString &name, Parser &parser, Predicate p)
         // All offsets start from 1 and not 0, so we have to shift them.
         const auto start = offsets[i - 1] - 1;
         const auto end = offsets[i] - 1;
+        if (start == end) {
+            continue;
+        }
+
+        const auto parserStart = parser.offset();
         p(start, end, i - 1, parser);
+
+        const auto diff = qint64(parser.offset() - parserStart) - qint64(end - start);
+        if (diff < 0) {
+            parser.advance(quint32(qAbs(diff)));
+        } else if (diff > 0) {
+            throw "parser read too much";
+        }
     }
 
     parser.endGroup();
@@ -224,16 +236,17 @@ static Dict parseDict(const quint32 size, Parser &parser)
 
 static void parseSubr(const quint32 start, const quint32 end, const int index, Parser &parser)
 {
-    if (start == end) {
+    if (start > end) {
+        throw "invalid Subroutine data";
+    }
+
+    // TODO: does 1 byte subroutines are malformed?
+    if (end - start < 2) {
         // Skip empty.
         return;
     }
 
     parser.beginGroup(QString("Subroutine %1").arg(index));
-
-    if (start > end) {
-        throw "invalid Subroutine data";
-    }
 
     const auto globalEnd = parser.offset() + (end - start);
 
@@ -324,10 +337,18 @@ static void parseSubr(const quint32 start, const quint32 end, const int index, P
         } else if (b0 >= 32 && b0 <= 246) {
             parser.readValue(1, "Number", QString::number(int(b0) - 139));
         } else if (b0 >= 247 && b0 <= 250) {
+            if (parser.offset() + 2 > globalEnd) {
+                break;
+            }
+
             const auto b1 = parser.peek<UInt8>(2);
             const auto n = (int(b0) - 247) * 256 + int(b1) + 108;
             parser.readValue(2, "Number", QString::number(n));
         } else if (b0 >= 251 && b0 <= 254) {
+            if (parser.offset() + 2 > globalEnd) {
+                break;
+            }
+
             const auto b1 = parser.peek<UInt8>(2);
             const auto n = -(int(b0) - 251) * 256 - int(b1) - 108;
             parser.readValue(2, "Number", QString::number(n));
@@ -341,14 +362,6 @@ static void parseSubr(const quint32 start, const quint32 end, const int index, P
             const auto n = shadow.read<Fixed>();
             parser.readValue(5, "Number", QString::number(double(n)));
         }
-    }
-
-    if (parser.offset() > globalEnd) {
-        qDebug() << "diff" << index << parser.offset() << globalEnd;
-        throw "invalid charstring";
-    } else if (parser.offset() < globalEnd) {
-        // TODO: Padding or something else?
-        parser.advance(globalEnd - parser.offset());
     }
 
     parser.endGroup();
@@ -435,7 +448,7 @@ void parseCff2(Parser &parser)
         });
     }
 
-    algo::sort_all(privateDictRanges, [](const auto &a, const auto &b){ return a.offset < b.offset; });
+    algo::sort_all_by_key(privateDictRanges, &Range::offset);
 
     QVector<quint32> subrsOffsets;
     for (const auto &range : privateDictRanges) {

@@ -207,7 +207,7 @@ void parseOS2(Parser &parser)
     parser.read<UInt32>("Code Page Character Range 1"); // TODO
     parser.read<UInt32>("Code Page Character Range 2");
 
-    if (version < 3) {
+    if (version < 2) {
         return;
     }
 

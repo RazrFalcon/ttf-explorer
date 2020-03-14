@@ -48,6 +48,7 @@ static void parse(const QByteArray &fontData, TreeModel *model)
              if (tag == "avar") table = "Axis Variations Table";
         else if (tag == "CFF ") table = "Compact Font Format Table";
         else if (tag == "CFF2") table = "Compact Font Format 2 Table";
+        else if (tag == "cmap") table = "Character to Glyph Index Mapping Table";
         else if (tag == "fvar") table = "Font Variations Table";
         else if (tag == "GDEF") table = "Glyph Definition Table";
         else if (tag == "glyf") table = "Glyph Data Table";
@@ -112,6 +113,8 @@ static void parse(const QByteArray &fontData, TreeModel *model)
             parseCff(parser);
         } else if (table.name == "CFF2") {
             parseCff2(parser);
+        } else if (table.name == "cmap") {
+            parseCmap(parser);
         } else if (table.name == "fvar") {
             parseFvar(parser);
         } else if (table.name == "GDEF") {
@@ -179,7 +182,7 @@ static QVector<Range> collectRanges(TreeItem *root)
     QVector<Range> ranges;
     collectRangesImpl(root, ranges);
     // Make sure to sort them.
-    algo::sort_all(ranges, [](const auto &a, const auto &b) { return a.start < b.start; });
+    algo::sort_all_by_key(ranges, &Range::start);
     return ranges;
 }
 

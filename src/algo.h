@@ -43,6 +43,12 @@ void dedup_vector(QVector<T> &vec)
     dedup_vector(vec, [](const auto &a, const auto &b){ return a == b; });
 }
 
+template<typename T, typename Field>
+void dedup_vector_by_key(QVector<T> &vec, Field field)
+{
+    dedup_vector(vec, [field](const auto &a, const auto &b){ return a.*field == b.*field; });
+}
+
 template <typename Container, typename Predicate>
 std::optional<typename Container::value_type> find_if(const Container &c, Predicate p)
 {
@@ -64,6 +70,14 @@ template <typename Container, typename Predicate>
 void sort_all(Container &c, Predicate p)
 {
     std::sort(std::begin(c), std::end(c), p);
+}
+
+template <typename Container, typename Field>
+void sort_all_by_key(Container &c, Field field)
+{
+    std::sort(std::begin(c), std::end(c), [field](const auto &a, const auto &b) {
+        return a.*field < b.*field;
+    });
 }
 
 }
