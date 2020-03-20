@@ -33,6 +33,8 @@ name,
 OS/2,
 post,
 STAT (partially),
+vhea,
+vmtx,
 VORG
 
 ## License
@@ -40,4 +42,4 @@ VORG
 MIT
 
 Also, most of the value names were taken from the Microsoft's
-[OpenType™ specification](https://docs.microsoft.com/en-us/typography/opentype/spec/).
+[OpenType™](https://docs.microsoft.com/en-us/typography/opentype/spec/) specification.

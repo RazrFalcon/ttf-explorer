@@ -25,9 +25,12 @@ void parseName(Parser &parser);
 void parseOS2(Parser &parser);
 void parsePost(const quint32 end, Parser &parser);
 void parseStat(Parser &parser);
+void parseVhea(Parser &parser);
+void parseVmtx(const quint16 numberOfMetrics, const quint16 numberOfGlyphs, Parser &parser);
 void parseVorg(Parser &parser);
 
 IndexToLocFormat parseHeadIndexToLocFormat(ShadowParser parser);
 quint16 parseMaxpNumberOfGlyphs(ShadowParser parser);
 quint16 parseHheaNumberOfMetrics(ShadowParser parser);
+quint16 parseVheaNumberOfMetrics(ShadowParser parser);
 void parseItemVariationStore(Parser &parser);

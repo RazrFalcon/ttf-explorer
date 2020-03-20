@@ -32,6 +32,8 @@ SOURCES += \
     src/tables/os2.cpp \
     src/tables/post.cpp \
     src/tables/stat.cpp \
+    src/tables/vhea.cpp \
+    src/tables/vmtx.cpp \
     src/tables/vorg.cpp \
     src/treemodel.cpp
 

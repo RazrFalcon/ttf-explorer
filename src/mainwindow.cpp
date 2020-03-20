@@ -63,6 +63,8 @@ static void parse(const QByteArray &fontData, TreeModel *model)
         else if (tag == "OS/2") table = "OS/2 and Windows Metrics Table";
         else if (tag == "post") table = "PostScript Table";
         else if (tag == "STAT") table = "Style Attributes Table";
+        else if (tag == "vhea") table = "Vertical Header Table";
+        else if (tag == "vmtx") table = "Vertical Metrics Table";
         else if (tag == "VORG") table = "Vertical Origin Table";
         else table = "Unknown Table";
 
@@ -156,6 +158,17 @@ static void parse(const QByteArray &fontData, TreeModel *model)
             parsePost(table.end(), parser);
         } else if (table.name == "STAT") {
             parseStat(parser);
+        } else if (table.name == "vhea") {
+            parseVhea(parser);
+        } else if (table.name == "vmtx") {
+            if (const auto vhea = algo::find_if(tables, [](const auto t){ return t.name == "vhea"; })) {
+                const auto raw = reinterpret_cast<const quint8*>(fontData.constData());
+                gsl::span<const quint8> vheaData(raw + vhea->offset, raw + vhea->end());
+                const auto numberOfMetrics = parseVheaNumberOfMetrics(ShadowParser(vheaData));
+                parseVmtx(numberOfMetrics, numberOfGlyphs, parser);
+            } else {
+                throw "no 'vhea' table";
+            }
         } else if (table.name == "VORG") {
             parseVorg(parser);
         }
