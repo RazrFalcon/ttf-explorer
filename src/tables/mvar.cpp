@@ -117,7 +117,7 @@ void parseItemVariationStore(Parser &parser)
     algo::sort_all(offsets);
     for (const auto offset : offsets) {
         parser.jumpTo(start + offset);
-        parser.beginGroup("Subtable");
+        parser.beginGroup("Item variation subtable");
         parseItemVariationData(parser);
         parser.endGroup();
     }

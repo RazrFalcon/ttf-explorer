@@ -26,6 +26,7 @@ gvar,
 head,
 hhea,
 hmtx,
+HVAR,
 loca,
 maxp,
 MVAR,
@@ -35,7 +36,8 @@ post,
 STAT (partially),
 vhea,
 vmtx,
-VORG
+VORG,
+VVAR
 
 ## License
 

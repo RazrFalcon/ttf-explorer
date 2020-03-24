@@ -671,7 +671,7 @@ public:
         return T::parse(m_data + T::Size * (offset - 1));
     }
 
-    void beginGroup(const QString &title, const QString &value = QString())
+    TreeItem* beginGroup(const QString &title, const QString &value = QString())
     {
         TreeItemData data;
         data.title = title;
@@ -681,6 +681,7 @@ public:
         data.end = offset(); // Will be set later in `endGroup()`.
 
         m_parent = m_model->appendChild(data, m_parent);
+        return m_parent;
     }
 
     void endGroup(const QString &title = QString(), const QString &value = QString(), const quint32 end = 0)
@@ -704,6 +705,12 @@ public:
         }
 
         m_parent = m_parent->parent();
+    }
+
+    void undoGroup(TreeItem *item)
+    {
+        m_parent = item->parent();
+        m_model->removeChild(item);
     }
 
     ShadowParser shadow()

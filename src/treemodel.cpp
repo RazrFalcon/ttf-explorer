@@ -17,6 +17,11 @@ bool TreeItem::appendChild(TreeItem *item)
     return true;
 }
 
+void TreeItem::removeChild(TreeItem *child)
+{
+    m_childItems.removeOne(child);
+}
+
 void TreeItem::removeChildren()
 {
     qDeleteAll(m_childItems);
@@ -210,6 +215,13 @@ TreeItem* TreeModel::appendChild(const TreeItemData &data, TreeItem *parent)
     endInsertRows();
 
     return item;
+}
+
+void TreeModel::removeChild(TreeItem *item)
+{
+    beginRemoveRows(index(item->row(), 0, QModelIndex()), 1, 1);
+    item->parent()->removeChild(item);
+    endRemoveRows();
 }
 
 bool TreeModel::isEmpty() const

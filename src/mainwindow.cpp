@@ -13,7 +13,7 @@
 
 #include "mainwindow.h"
 
-static void parse(const QByteArray &fontData, TreeModel *model)
+static QStringList parse(const QByteArray &fontData, TreeModel *model)
 {
     Parser parser(fontData, model);
 
@@ -56,6 +56,7 @@ static void parse(const QByteArray &fontData, TreeModel *model)
         else if (tag == "head") table = "Font Header Table";
         else if (tag == "hhea") table = "Horizontal Header Table";
         else if (tag == "hmtx") table = "Horizontal Metrics Table";
+        else if (tag == "HVAR") table = "Horizontal Metrics Variations Table";
         else if (tag == "loca") table = "Index to Location Table";
         else if (tag == "maxp") table = "Maximum Profile Table";
         else if (tag == "MVAR") table = "Metrics Variations Table";
@@ -65,6 +66,7 @@ static void parse(const QByteArray &fontData, TreeModel *model)
         else if (tag == "STAT") table = "Style Attributes Table";
         else if (tag == "vhea") table = "Vertical Header Table";
         else if (tag == "vmtx") table = "Vertical Metrics Table";
+        else if (tag == "VVAR") table = "Vertical Metrics Variations Table";
         else if (tag == "VORG") table = "Vertical Origin Table";
         else table = "Unknown Table";
 
@@ -83,6 +85,8 @@ static void parse(const QByteArray &fontData, TreeModel *model)
     std::sort(tables.begin(), tables.end(), [](const auto &a, const auto &b){
         return a.offset < b.offset;
     });
+
+    QStringList warnings;
 
     quint16 numberOfGlyphs = 0;
     if (const auto maxp = algo::find_if(tables, [](const auto t){ return t.name == "maxp"; })) {
@@ -107,74 +111,90 @@ static void parse(const QByteArray &fontData, TreeModel *model)
             continue;
         }
 
-        parser.beginGroup(table.title);
+        const auto groupItem = parser.beginGroup(table.title);
 
-        if (table.name == "avar") {
-            parseAvar(parser);
-        } else if (table.name == "CFF ") {
-            parseCff(parser);
-        } else if (table.name == "CFF2") {
-            parseCff2(parser);
-        } else if (table.name == "cmap") {
-            parseCmap(parser);
-        } else if (table.name == "fvar") {
-            parseFvar(parser);
-        } else if (table.name == "GDEF") {
-            parseGdef(parser);
-        } else if (table.name == "glyf") {
-            if (const auto loca = algo::find_if(tables, [](const auto t){ return t.name == "loca"; })) {
-                const auto raw = reinterpret_cast<const quint8*>(fontData.constData());
-                gsl::span<const quint8> locaData(raw + loca->offset, raw + loca->end());
-                parseGlyf(numberOfGlyphs, indexToLocFormat, locaData, parser);
-            } else {
-                throw "no 'loca' table";
+        try {
+            if (table.name == "avar") {
+                parseAvar(parser);
+            } else if (table.name == "CFF ") {
+                parseCff(parser);
+            } else if (table.name == "CFF2") {
+                parseCff2(parser);
+            } else if (table.name == "cmap") {
+                parseCmap(parser);
+            } else if (table.name == "fvar") {
+                parseFvar(parser);
+            } else if (table.name == "GDEF") {
+                parseGdef(parser);
+            } else if (table.name == "glyf") {
+                if (const auto loca = algo::find_if(tables, [](const auto t){ return t.name == "loca"; })) {
+                    const auto raw = reinterpret_cast<const quint8*>(fontData.constData());
+                    gsl::span<const quint8> locaData(raw + loca->offset, raw + loca->end());
+                    parseGlyf(numberOfGlyphs, indexToLocFormat, locaData, parser);
+                } else {
+                    throw "no 'loca' table";
+                }
+            } else if (table.name == "gvar") {
+                parseGvar(parser);
+            } else if (table.name == "head") {
+                parseHead(parser);
+            } else if (table.name == "hhea") {
+                parseHhea(parser);
+            } else if (table.name == "hmtx") {
+                if (const auto hhea = algo::find_if(tables, [](const auto t){ return t.name == "hhea"; })) {
+                    const auto raw = reinterpret_cast<const quint8*>(fontData.constData());
+                    gsl::span<const quint8> hheaData(raw + hhea->offset, raw + hhea->end());
+                    const auto numberOfMetrics = parseHheaNumberOfMetrics(ShadowParser(hheaData));
+                    parseHmtx(numberOfMetrics, numberOfGlyphs, parser);
+                } else {
+                    throw "no 'hhea' table";
+                }
+            } else if (table.name == "HVAR") {
+                parseHvar(parser);
+            } else if (table.name == "loca") {
+                parseLoca(numberOfGlyphs, indexToLocFormat, parser);
+            } else if (table.name == "maxp") {
+                parseMaxp(parser);
+            } else if (table.name == "MVAR") {
+                parseMvar(parser);
+            } else if (table.name == "name") {
+                parseName(parser);
+            } else if (table.name == "OS/2") {
+                parseOS2(parser);
+            } else if (table.name == "post") {
+                parsePost(table.end(), parser);
+            } else if (table.name == "STAT") {
+                parseStat(parser);
+            } else if (table.name == "vhea") {
+                parseVhea(parser);
+            } else if (table.name == "vmtx") {
+                if (const auto vhea = algo::find_if(tables, [](const auto t){ return t.name == "vhea"; })) {
+                    const auto raw = reinterpret_cast<const quint8*>(fontData.constData());
+                    gsl::span<const quint8> vheaData(raw + vhea->offset, raw + vhea->end());
+                    const auto numberOfMetrics = parseVheaNumberOfMetrics(ShadowParser(vheaData));
+                    parseVmtx(numberOfMetrics, numberOfGlyphs, parser);
+                } else {
+                    throw "no 'vhea' table";
+                }
+            } else if (table.name == "VVAR") {
+                parseVvar(parser);
+            } else if (table.name == "VORG") {
+                parseVorg(parser);
             }
-        } else if (table.name == "gvar") {
-            parseGvar(parser);
-        } else if (table.name == "head") {
-            parseHead(parser);
-        } else if (table.name == "hhea") {
-            parseHhea(parser);
-        } else if (table.name == "hmtx") {
-            if (const auto hhea = algo::find_if(tables, [](const auto t){ return t.name == "hhea"; })) {
-                const auto raw = reinterpret_cast<const quint8*>(fontData.constData());
-                gsl::span<const quint8> hheaData(raw + hhea->offset, raw + hhea->end());
-                const auto numberOfMetrics = parseHheaNumberOfMetrics(ShadowParser(hheaData));
-                parseHmtx(numberOfMetrics, numberOfGlyphs, parser);
-            } else {
-                throw "no 'hhea' table";
-            }
-        } else if (table.name == "loca") {
-            parseLoca(numberOfGlyphs, indexToLocFormat, parser);
-        } else if (table.name == "maxp") {
-            parseMaxp(parser);
-        } else if (table.name == "MVAR") {
-            parseMvar(parser);
-        } else if (table.name == "name") {
-            parseName(parser);
-        } else if (table.name == "OS/2") {
-            parseOS2(parser);
-        } else if (table.name == "post") {
-            parsePost(table.end(), parser);
-        } else if (table.name == "STAT") {
-            parseStat(parser);
-        } else if (table.name == "vhea") {
-            parseVhea(parser);
-        } else if (table.name == "vmtx") {
-            if (const auto vhea = algo::find_if(tables, [](const auto t){ return t.name == "vhea"; })) {
-                const auto raw = reinterpret_cast<const quint8*>(fontData.constData());
-                gsl::span<const quint8> vheaData(raw + vhea->offset, raw + vhea->end());
-                const auto numberOfMetrics = parseVheaNumberOfMetrics(ShadowParser(vheaData));
-                parseVmtx(numberOfMetrics, numberOfGlyphs, parser);
-            } else {
-                throw "no 'vhea' table";
-            }
-        } else if (table.name == "VORG") {
-            parseVorg(parser);
+
+            parser.endGroup();
+        } catch (const char *e) {
+            parser.undoGroup(groupItem);
+            warnings.append(QString("Failed to parse the '%1' table cause %2.")
+                                .arg(table.name.toString()).arg(e));
+        } catch (const std::exception &e) {
+            parser.undoGroup(groupItem);
+            warnings.append(QString("Failed to parse the '%1' table cause %2.")
+                                .arg(table.name.toString()).arg(e.what()));
         }
-
-        parser.endGroup();
     }
+
+    return warnings;
 }
 
 static void collectRangesImpl(TreeItem *parent, QVector<Range> &ranges)
@@ -267,7 +287,10 @@ void MainWindow::loadFile(const QString &path)
     m_model.reset(new TreeModel());
 
     try {
-        parse(fontData, m_model.get());
+        const auto warnings = parse(fontData, m_model.get());
+        if (!warnings.isEmpty()) {
+            QMessageBox::warning(this, "Warning", warnings.join("\n"));
+        }
     } catch (const char *e) {
         QMessageBox::warning(this, "Warning", QString("Failed to parse a font cause:\n%1").arg(e));
         return;

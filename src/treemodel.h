@@ -50,6 +50,7 @@ public:
     { return !m_childItems.isEmpty(); }
 
     bool appendChild(TreeItem *child);
+    void removeChild(TreeItem *child);
     void removeChildren();
 
     const TreeItemData& data() const
@@ -90,6 +91,7 @@ public:
     TreeItem *rootItem() const;
 
     TreeItem *appendChild(const TreeItemData &data, TreeItem *parent = nullptr);
+    void removeChild(TreeItem *item);
 
     bool isEmpty() const;
     void clear();

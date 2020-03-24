@@ -25,6 +25,7 @@ SOURCES += \
     src/tables/head.cpp \
     src/tables/hhea.cpp \
     src/tables/hmtx.cpp \
+    src/tables/hvar.cpp \
     src/tables/loca.cpp \
     src/tables/maxp.cpp \
     src/tables/mvar.cpp \
@@ -35,6 +36,7 @@ SOURCES += \
     src/tables/vhea.cpp \
     src/tables/vmtx.cpp \
     src/tables/vorg.cpp \
+    src/tables/vvar.cpp \
     src/treemodel.cpp
 
 HEADERS += \
