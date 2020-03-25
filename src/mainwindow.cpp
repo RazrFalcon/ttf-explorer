@@ -63,6 +63,7 @@ static QStringList parse(const QByteArray &fontData, TreeModel *model)
         else if (tag == "name") table = "Naming Table";
         else if (tag == "OS/2") table = "OS/2 and Windows Metrics Table";
         else if (tag == "post") table = "PostScript Table";
+        else if (tag == "sbix") table = "Standard Bitmap Graphics Table";
         else if (tag == "STAT") table = "Style Attributes Table";
         else if (tag == "vhea") table = "Vertical Header Table";
         else if (tag == "vmtx") table = "Vertical Metrics Table";
@@ -163,6 +164,8 @@ static QStringList parse(const QByteArray &fontData, TreeModel *model)
                 parseOS2(parser);
             } else if (table.name == "post") {
                 parsePost(table.end(), parser);
+            } else if (table.name == "sbix") {
+                parseSbix(numberOfGlyphs, parser);
             } else if (table.name == "STAT") {
                 parseStat(parser);
             } else if (table.name == "vhea") {
@@ -247,9 +250,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(m_hexView, &HexView::byteClicked, this, &MainWindow::onHexViewByteClicked);
 
-    setMinimumWidth(1000);
-    setMinimumHeight(500);
-    adjustSize();
+    resize(1200, 600);
     setWindowTitle("TTF Explorer");
 
     QTimer::singleShot(1, this, &MainWindow::onStart);
@@ -306,12 +307,14 @@ void MainWindow::loadFile(const QString &path)
             this, &MainWindow::onTreeSelectionChanged);
 
     m_treeView->header()->resizeSection(
+        Column::Value, m_treeView->fontMetrics().horizontalAdvance("00000000000000000000"));
+
+    m_treeView->header()->resizeSection(
         Column::Type, m_treeView->fontMetrics().horizontalAdvance("__LongDateTime__"));
 
     m_treeView->header()->setSectionResizeMode(Column::Type, QHeaderView::Fixed);
     m_treeView->header()->setStretchLastSection(false);
     m_treeView->resizeColumnToContents(Column::Title);
-    m_treeView->resizeColumnToContents(Column::Value);
 
     setWindowTitle("TTF Explorer: " + path);
 }

@@ -25,6 +25,7 @@ void parseMvar(Parser &parser);
 void parseName(Parser &parser);
 void parseOS2(Parser &parser);
 void parsePost(const quint32 end, Parser &parser);
+void parseSbix(const quint16 numberOfGlyphs, Parser &parser);
 void parseStat(Parser &parser);
 void parseVhea(Parser &parser);
 void parseVmtx(const quint16 numberOfMetrics, const quint16 numberOfGlyphs, Parser &parser);

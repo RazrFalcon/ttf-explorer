@@ -32,6 +32,7 @@ SOURCES += \
     src/tables/name.cpp \
     src/tables/os2.cpp \
     src/tables/post.cpp \
+    src/tables/sbix.cpp \
     src/tables/stat.cpp \
     src/tables/vhea.cpp \
     src/tables/vmtx.cpp \
