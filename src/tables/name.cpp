@@ -4,14 +4,6 @@
 
 using namespace NameCommon;
 
-struct Range
-{
-    quint32 start;
-    quint32 end;
-
-    quint32 size() const { return end - start; }
-};
-
 struct Utf16BE
 {
     static const QString Type;

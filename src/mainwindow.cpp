@@ -29,7 +29,8 @@ static QStringList parse(const QByteArray &fontData, TreeModel *model)
     parser.read<UInt16>("Range shift");
     parser.endGroup();
 
-    struct Table {
+    struct Table
+    {
         QString title;
         Tag name;
         quint32 offset;
@@ -46,6 +47,8 @@ static QStringList parse(const QByteArray &fontData, TreeModel *model)
 
         QString table;
              if (tag == "avar") table = "Axis Variations Table";
+        else if (tag == "CBDT") table = "Color Bitmap Data Table";
+        else if (tag == "CBLC") table = "Color Bitmap Location Table";
         else if (tag == "CFF ") table = "Compact Font Format Table";
         else if (tag == "CFF2") table = "Compact Font Format 2 Table";
         else if (tag == "cmap") table = "Character to Glyph Index Mapping Table";
@@ -83,9 +86,7 @@ static QStringList parse(const QByteArray &fontData, TreeModel *model)
     }
     parser.endGroup();
 
-    std::sort(tables.begin(), tables.end(), [](const auto &a, const auto &b){
-        return a.offset < b.offset;
-    });
+    algo::sort_all_by_key(tables, &Table::offset);
 
     QStringList warnings;
 
@@ -105,6 +106,12 @@ static QStringList parse(const QByteArray &fontData, TreeModel *model)
         throw "no 'head' table";
     }
 
+    QVector<CblcIndex> cblcLocations;
+    if (const auto cblc = algo::find_if(tables, [](const auto t){ return t.name == "CBLC"; })) {
+        parser.jumpTo(cblc->offset);
+        cblcLocations = parseCblcLocations(parser.shadow());
+    }
+
     for (const auto &table : tables) {
         parser.jumpTo(table.offset);
 
@@ -117,6 +124,10 @@ static QStringList parse(const QByteArray &fontData, TreeModel *model)
         try {
             if (table.name == "avar") {
                 parseAvar(parser);
+            } else if (table.name == "CBDT") {
+                parseCbdt(cblcLocations, parser);
+            } else if (table.name == "CBLC") {
+                parseCblc(parser);
             } else if (table.name == "CFF ") {
                 parseCff(parser);
             } else if (table.name == "CFF2") {

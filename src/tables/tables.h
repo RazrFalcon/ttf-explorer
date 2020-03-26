@@ -3,10 +3,19 @@
 #include <QtGlobal>
 
 #include "src/parser.h"
+#include "src/range.h"
 
 enum class IndexToLocFormat { Short, Long };
 
+struct CblcIndex
+{
+    quint16 imageFormat;
+    Range range;
+};
+
 void parseAvar(Parser &parser);
+void parseCblc(Parser &parser);
+void parseCbdt(const QVector<CblcIndex> &cblcLocations, Parser &parser);
 void parseCff(Parser &parser);
 void parseCff2(Parser &parser);
 void parseCmap(Parser &parser);
@@ -38,3 +47,4 @@ quint16 parseHheaNumberOfMetrics(ShadowParser parser);
 quint16 parseVheaNumberOfMetrics(ShadowParser parser);
 void parseHvarDeltaSet(Parser &parser);
 void parseItemVariationStore(Parser &parser);
+QVector<CblcIndex> parseCblcLocations(ShadowParser parser);

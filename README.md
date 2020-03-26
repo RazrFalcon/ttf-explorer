@@ -16,6 +16,8 @@ You also need a C++ compiler with C++17 support.
 ## Supported tables
 
 avar,
+CBDT,
+CBLC (only IndexSubTable1),
 CFF (mostly),
 CFF2,
 cmap,

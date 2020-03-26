@@ -11,6 +11,8 @@ equals(QMAKE_CXX, clang++) {
 
 SOURCES += \
     src/tables/avar.cpp \
+    src/tables/cbdt.cpp \
+    src/tables/cblc.cpp \
     src/tables/cff.cpp \
     src/tables/cff2.cpp \
     src/tables/cmap.cpp \
@@ -46,5 +48,6 @@ HEADERS += \
     src/hexview.h \
     src/mainwindow.h \
     src/parser.h \
+    src/range.h \
     src/tables/tables.h \
     src/treemodel.h

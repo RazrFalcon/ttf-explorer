@@ -404,6 +404,15 @@ public:
         return quint32(m_end - m_data);
     }
 
+    void advance(const quint32 size)
+    {
+        if (m_data + size >= m_end) {
+            throw std::out_of_range("out of range");
+        }
+
+        m_data += size;
+    }
+
     void jumpTo(const quint32 offset)
     {
         if (m_start + offset >= m_end) {
@@ -421,6 +430,16 @@ public:
     bool atEnd(const quint32 size) const
     {
         return m_data + size > m_end;
+    }
+
+    template<typename T>
+    void skip()
+    {
+        if (atEnd(T::Size)) {
+            throw std::out_of_range("out of range");
+        }
+
+        m_data += T::Size;
     }
 
     template<typename T>
