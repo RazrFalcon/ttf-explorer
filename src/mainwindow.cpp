@@ -13,12 +13,40 @@
 
 #include "mainwindow.h"
 
+struct Magic
+{
+    static const int Size = 4;
+    static const QString Type;
+
+    static Magic parse(const quint8 *data)
+    {
+        return { qFromBigEndian<quint32>(data) };
+    }
+
+    static QString toString(const Magic &value)
+    {
+        if (value == 0x00010000) {
+            return "TrueType";
+        } else if (value == 0x4F54544F) {
+            return "OpenType";
+        } else {
+            return "Unknown";
+        }
+    }
+
+    operator quint32() const { return d; }
+
+    quint32 d;
+};
+
+const QString Magic::Type = "Magic";
+
 static QStringList parse(const QByteArray &fontData, TreeModel *model)
 {
     Parser parser(fontData, model);
 
     parser.beginGroup("Header");
-    const auto magic = parser.read<UInt32>("Magic");
+    const auto magic = parser.read<Magic>("Magic");
     if (magic != 0x00010000 && magic != 0x4F54544F) {
         throw "not a TrueType font";
     }
