@@ -9,6 +9,8 @@ equals(QMAKE_CXX, clang++) {
     QMAKE_CXXFLAGS += -Wextra -Wpedantic -Wimplicit-fallthrough -Wconversion
 }
 
+LIBS += -lz
+
 SOURCES += \
     src/tables/avar.cpp \
     src/tables/cbdt.cpp \
@@ -36,6 +38,7 @@ SOURCES += \
     src/tables/post.cpp \
     src/tables/sbix.cpp \
     src/tables/stat.cpp \
+    src/tables/svg.cpp \
     src/tables/vhea.cpp \
     src/tables/vmtx.cpp \
     src/tables/vorg.cpp \

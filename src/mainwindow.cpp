@@ -41,6 +41,7 @@ struct Magic
 
 const QString Magic::Type = "Magic";
 
+
 static QStringList parse(const QByteArray &fontData, TreeModel *model)
 {
     Parser parser(fontData, model);
@@ -96,6 +97,7 @@ static QStringList parse(const QByteArray &fontData, TreeModel *model)
         else if (tag == "post") table = "PostScript Table";
         else if (tag == "sbix") table = "Standard Bitmap Graphics Table";
         else if (tag == "STAT") table = "Style Attributes Table";
+        else if (tag == "SVG ") table = "Scalable Vector Graphics Table";
         else if (tag == "vhea") table = "Vertical Header Table";
         else if (tag == "vmtx") table = "Vertical Metrics Table";
         else if (tag == "VVAR") table = "Vertical Metrics Variations Table";
@@ -207,6 +209,8 @@ static QStringList parse(const QByteArray &fontData, TreeModel *model)
                 parseSbix(numberOfGlyphs, parser);
             } else if (table.name == "STAT") {
                 parseStat(parser);
+            } else if (table.name == "SVG ") {
+                parseSvg(parser);
             } else if (table.name == "vhea") {
                 parseVhea(parser);
             } else if (table.name == "vmtx") {
