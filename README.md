@@ -18,6 +18,7 @@ You also need a C++ compiler with C++17 support.
 avar,
 bdat,
 bloc,
+cvt,
 CBDT,
 CBLC,
 CFF (mostly),
