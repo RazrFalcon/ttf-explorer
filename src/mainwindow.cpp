@@ -29,6 +29,8 @@ struct Magic
             return "TrueType";
         } else if (value == 0x4F54544F) {
             return "OpenType";
+        } else if (value == 0x74746366) {
+            return "Font Collection";
         } else {
             return "Unknown";
         }
@@ -42,33 +44,29 @@ struct Magic
 const QString Magic::Type = "Magic";
 
 
-static QStringList parse(const QByteArray &fontData, TreeModel *model)
+struct Table
 {
-    Parser parser(fontData, model);
+    quint32 index; // Index in font collection.
+    QString title;
+    Tag name;
+    quint32 offset;
+    quint32 length;
 
+    quint32 end() const { return offset + length; } // TODO: check overflow
+};
+
+static void parseFontHeader(const quint32 fontIndex, QVector<Table> &tables, Parser &parser)
+{
     parser.beginGroup("Header");
     const auto magic = parser.read<Magic>("Magic");
     if (magic != 0x00010000 && magic != 0x4F54544F) {
         throw "not a TrueType font";
     }
-
     const auto numTables = parser.read<UInt16>("Number of tables");
     parser.read<UInt16>("Search range");
     parser.read<UInt16>("Entry selector");
     parser.read<UInt16>("Range shift");
     parser.endGroup();
-
-    struct Table
-    {
-        QString title;
-        Tag name;
-        quint32 offset;
-        quint32 length;
-
-        quint32 end() const { return offset + length; } // TODO: check overflow
-    };
-
-    QVector<Table> tables;
 
     parser.beginGroup("Table Records");
     for (auto i = 0; i < numTables; ++i) {
@@ -118,50 +116,29 @@ static QStringList parse(const QByteArray &fontData, TreeModel *model)
         parser.endGroup();
 
         table += " (" + tag.toString().trimmed() + ')';
-        tables.append({ table, tag, offset, length });
+        tables.append({ fontIndex, table, tag, offset, length });
     }
     parser.endGroup();
+}
 
-    algo::sort_all_by_key(tables, &Table::offset);
+static std::optional<Table> findTable(const QVector<Table> &tables, const quint32 index, const char* tag)
+{
+    return algo::find_if(tables, [=](const auto t){ return t.index == index && t.name == tag; });
+}
 
-    QStringList warnings;
-
-    quint16 numberOfGlyphs = 0;
-    if (const auto maxp = algo::find_if(tables, [](const auto t){ return t.name == "maxp"; })) {
-        parser.jumpTo(maxp->offset);
-        numberOfGlyphs = parseMaxpNumberOfGlyphs(parser.shadow());
-    } else {
-        throw "no 'maxp' table";
-    }
-
-    auto indexToLocFormat = IndexToLocFormat::Short;
-    if (const auto head = algo::find_if(tables, [](const auto t){ return t.name == "head"; })) {
-        parser.jumpTo(head->offset);
-        indexToLocFormat = parseHeadIndexToLocFormat(parser.shadow());
-    } else {
-        throw "no 'head' table";
-    }
-
-    QVector<CblcIndex> cblcLocations;
-    if (const auto cblc = algo::find_if(tables, [](const auto t){ return t.name == "CBLC"; })) {
-        parser.jumpTo(cblc->offset);
-        cblcLocations = parseCblcLocations(parser.shadow());
-    }
-
-    QVector<CblcIndex> eblcLocations;
-    if (const auto eblc = algo::find_if(tables, [](const auto t){ return t.name == "EBLC"; })) {
-        parser.jumpTo(eblc->offset);
-        eblcLocations = parseCblcLocations(parser.shadow());
-    }
-
-    QVector<CblcIndex> blocLocations;
-    if (const auto bloc = algo::find_if(tables, [](const auto t){ return t.name == "bloc"; })) {
-        parser.jumpTo(bloc->offset);
-        blocLocations = parseCblcLocations(parser.shadow());
-    }
+static void parseTables(const QVector<Table> &tables, const QByteArray &fontData,
+                        QStringList &warnings, Parser &parser)
+{
+    // We cannot use algo::dedup_vector otherwise findTable will break down.
+    QVector<quint32> processedOffsets;
 
     for (const auto &table : tables) {
+        if (processedOffsets.contains(table.offset)) {
+            continue;
+        }
+
         parser.jumpTo(table.offset);
+        processedOffsets << table.offset;
 
         if (table.title.startsWith("Unknown")) {
             continue;
@@ -173,10 +150,24 @@ static QStringList parse(const QByteArray &fontData, TreeModel *model)
             if (table.name == "avar") {
                 parseAvar(parser);
             } else if (table.name == "bdat") {
+                QVector<CblcIndex> blocLocations;
+                if (const auto bloc = findTable(tables, table.index, "bloc")) {
+                    parser.jumpTo(bloc->offset);
+                    blocLocations = parseCblcLocations(parser.shadow());
+                }
+
+                parser.jumpTo(table.offset);
                 parseCbdt(blocLocations, parser);
             } else if (table.name == "bloc") {
                 parseCblc(parser);
             } else if (table.name == "CBDT") {
+                QVector<CblcIndex> cblcLocations;
+                if (const auto cblc = findTable(tables, table.index, "CBLC")) {
+                    parser.jumpTo(cblc->offset);
+                    cblcLocations = parseCblcLocations(parser.shadow());
+                }
+
+                parser.jumpTo(table.offset);
                 parseCbdt(cblcLocations, parser);
             } else if (table.name == "CBLC") {
                 parseCblc(parser);
@@ -189,6 +180,13 @@ static QStringList parse(const QByteArray &fontData, TreeModel *model)
             } else if (table.name == "cvt ") {
                 parser.readArray<Int16>("Values", "Value", table.length / 2);
             } else if (table.name == "EBDT") {
+                QVector<CblcIndex> eblcLocations;
+                if (const auto eblc = findTable(tables, table.index, "EBLC")) {
+                    parser.jumpTo(eblc->offset);
+                    eblcLocations = parseCblcLocations(parser.shadow());
+                }
+
+                parser.jumpTo(table.offset);
                 parseCbdt(eblcLocations, parser);
             } else if (table.name == "EBLC") {
                 parseCblc(parser);
@@ -199,9 +197,26 @@ static QStringList parse(const QByteArray &fontData, TreeModel *model)
             } else if (table.name == "GDEF") {
                 parseGdef(parser);
             } else if (table.name == "glyf") {
-                if (const auto loca = algo::find_if(tables, [](const auto t){ return t.name == "loca"; })) {
+                quint16 numberOfGlyphs = 0;
+                if (const auto maxp = findTable(tables, table.index, "maxp")) {
+                    parser.jumpTo(maxp->offset);
+                    numberOfGlyphs = parseMaxpNumberOfGlyphs(parser.shadow());
+                } else {
+                    throw "no 'maxp' table";
+                }
+
+                auto indexToLocFormat = IndexToLocFormat::Short;
+                if (const auto head = findTable(tables, table.index, "head")) {
+                    parser.jumpTo(head->offset);
+                    indexToLocFormat = parseHeadIndexToLocFormat(parser.shadow());
+                } else {
+                    throw "no 'head' table";
+                }
+
+                if (const auto loca = findTable(tables, table.index, "loca")) {
                     const auto raw = reinterpret_cast<const quint8*>(fontData.constData());
                     gsl::span<const quint8> locaData(raw + loca->offset, raw + loca->end());
+                    parser.jumpTo(table.offset);
                     parseGlyf(numberOfGlyphs, indexToLocFormat, locaData, parser);
                 } else {
                     throw "no 'loca' table";
@@ -213,10 +228,19 @@ static QStringList parse(const QByteArray &fontData, TreeModel *model)
             } else if (table.name == "hhea") {
                 parseHhea(parser);
             } else if (table.name == "hmtx") {
-                if (const auto hhea = algo::find_if(tables, [](const auto t){ return t.name == "hhea"; })) {
+                quint16 numberOfGlyphs = 0;
+                if (const auto maxp = findTable(tables, table.index, "maxp")) {
+                    parser.jumpTo(maxp->offset);
+                    numberOfGlyphs = parseMaxpNumberOfGlyphs(parser.shadow());
+                } else {
+                    throw "no 'maxp' table";
+                }
+
+                if (const auto hhea = findTable(tables, table.index, "hhea")) {
                     const auto raw = reinterpret_cast<const quint8*>(fontData.constData());
                     gsl::span<const quint8> hheaData(raw + hhea->offset, raw + hhea->end());
                     const auto numberOfMetrics = parseHheaNumberOfMetrics(ShadowParser(hheaData));
+                    parser.jumpTo(table.offset);
                     parseHmtx(numberOfMetrics, numberOfGlyphs, parser);
                 } else {
                     throw "no 'hhea' table";
@@ -224,6 +248,23 @@ static QStringList parse(const QByteArray &fontData, TreeModel *model)
             } else if (table.name == "HVAR") {
                 parseHvar(parser);
             } else if (table.name == "loca") {
+                quint16 numberOfGlyphs = 0;
+                if (const auto maxp = findTable(tables, table.index, "maxp")) {
+                    parser.jumpTo(maxp->offset);
+                    numberOfGlyphs = parseMaxpNumberOfGlyphs(parser.shadow());
+                } else {
+                    throw "no 'maxp' table";
+                }
+
+                auto indexToLocFormat = IndexToLocFormat::Short;
+                if (const auto head = findTable(tables, table.index, "head")) {
+                    parser.jumpTo(head->offset);
+                    indexToLocFormat = parseHeadIndexToLocFormat(parser.shadow());
+                } else {
+                    throw "no 'head' table";
+                }
+
+                parser.jumpTo(table.offset);
                 parseLoca(numberOfGlyphs, indexToLocFormat, parser);
             } else if (table.name == "maxp") {
                 parseMaxp(parser);
@@ -236,6 +277,15 @@ static QStringList parse(const QByteArray &fontData, TreeModel *model)
             } else if (table.name == "post") {
                 parsePost(table.end(), parser);
             } else if (table.name == "sbix") {
+                quint16 numberOfGlyphs = 0;
+                if (const auto maxp = findTable(tables, table.index, "maxp")) {
+                    parser.jumpTo(maxp->offset);
+                    numberOfGlyphs = parseMaxpNumberOfGlyphs(parser.shadow());
+                } else {
+                    throw "no 'maxp' table";
+                }
+
+                parser.jumpTo(table.offset);
                 parseSbix(numberOfGlyphs, parser);
             } else if (table.name == "STAT") {
                 parseStat(parser);
@@ -244,10 +294,19 @@ static QStringList parse(const QByteArray &fontData, TreeModel *model)
             } else if (table.name == "vhea") {
                 parseVhea(parser);
             } else if (table.name == "vmtx") {
-                if (const auto vhea = algo::find_if(tables, [](const auto t){ return t.name == "vhea"; })) {
+                quint16 numberOfGlyphs = 0;
+                if (const auto maxp = findTable(tables, table.index, "maxp")) {
+                    parser.jumpTo(maxp->offset);
+                    numberOfGlyphs = parseMaxpNumberOfGlyphs(parser.shadow());
+                } else {
+                    throw "no 'maxp' table";
+                }
+
+                if (const auto vhea = findTable(tables, table.index, "vhea")) {
                     const auto raw = reinterpret_cast<const quint8*>(fontData.constData());
                     gsl::span<const quint8> vheaData(raw + vhea->offset, raw + vhea->end());
                     const auto numberOfMetrics = parseVheaNumberOfMetrics(ShadowParser(vheaData));
+                    parser.jumpTo(table.offset);
                     parseVmtx(numberOfMetrics, numberOfGlyphs, parser);
                 } else {
                     throw "no 'vhea' table";
@@ -269,6 +328,60 @@ static QStringList parse(const QByteArray &fontData, TreeModel *model)
                                 .arg(table.name.toString()).arg(e.what()));
         }
     }
+}
+
+static QStringList parse(const QByteArray &fontData, TreeModel *model)
+{
+    QVector<Table> tables;
+
+    Parser parser(fontData, model);
+
+    const auto magic = parser.peek<UInt32>();
+    if (magic != 0x00010000 && magic != 0x4F54544F && magic != 0x74746366) {
+        throw "not a TrueType font";
+    }
+
+    QStringList warnings;
+
+    if (magic != 0x74746366) {
+        parseFontHeader(0, tables, parser);
+    } else {
+        parser.beginGroup("Header");
+        parser.read<Magic>("Magic");
+        const auto majorVersion = parser.read<UInt16>("Major version");
+        parser.read<UInt16>("Minor version");
+        const auto numFonts = parser.read<UInt32>("Number of fonts");
+
+        QVector<quint32> offsets;
+        if (numFonts != 0) {
+            parser.beginGroup("Offsets");
+            for (uint i = 0; i < numFonts; ++i) {
+                offsets << parser.read<Offset32>("Offset");
+            }
+            parser.endGroup();
+        }
+
+        algo::sort_all(offsets);
+        algo::dedup_vector(offsets);
+
+        if (majorVersion == 2) {
+            parser.read<Tag>("DSIG tag");
+            parser.read<UInt32>("DSIG table length");
+            parser.read<std::optional<Offset32>>("DSIG table offset");
+        }
+
+        parser.endGroup();
+
+        for (const auto [i, offset] : algo::enumerate(offsets)) {
+            parser.jumpTo(*offset);
+            parser.beginGroup("Font");
+            parseFontHeader(quint32(i), tables, parser);
+            parser.endGroup();
+        }
+    }
+
+    algo::sort_all_by_key(tables, &Table::offset);
+    parseTables(tables, fontData, warnings, parser);
 
     return warnings;
 }

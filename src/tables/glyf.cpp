@@ -324,7 +324,7 @@ void parseGlyf(const quint16 numberOfGlyphs, const IndexToLocFormat format,
 
         const auto diff = parser.offset() - start;
         if (glyphSize > diff) {
-            parser.advance(glyphSize - diff); // Padding
+            parser.readBytes(glyphSize - diff, "Padding");
         } else if (glyphSize < diff) {
             throw "malformed glyph";
         }

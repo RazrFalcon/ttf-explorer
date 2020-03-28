@@ -188,7 +188,7 @@ void parseGvar(Parser &parser)
         if (parser.offset() - start < offset) {
             const auto padding = offset - (parser.offset() - start);
             if (padding > 0) {
-                parser.advance(padding); // Padding
+                parser.readBytes(padding, "Padding");
             }
         }
 

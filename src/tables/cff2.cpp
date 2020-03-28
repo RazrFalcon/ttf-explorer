@@ -79,7 +79,7 @@ static void parseIndex(const QString &name, Parser &parser, Predicate p)
 
         const auto diff = qint64(parser.offset() - parserStart) - qint64(end - start);
         if (diff < 0) {
-            parser.advance(quint32(qAbs(diff)));
+            parser.readBytes(quint32(qAbs(diff)), "Padding");
         } else if (diff > 0) {
             throw "parser read too much";
         }
@@ -379,7 +379,7 @@ void parseCff2(Parser &parser)
     parser.endGroup();
 
     if (headerSize > 5) {
-        parser.advance(headerSize - 5); // Padding
+        parser.readBytes(headerSize - 5, "Padding");
     } else if (headerSize < 5) {
         throw "header size is too small";
     }

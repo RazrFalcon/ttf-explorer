@@ -31,7 +31,11 @@ void parsePost(const quint32 end, Parser &parser)
     while (parser.offset() < end) {
         parser.beginGroup("");
         const auto len = parser.read<UInt8>("Length");
-        const auto name = parser.readString(len, "Data");
-        parser.endGroup(name);
+        if (len != 0) {
+            const auto name = parser.readString(len, "Data");
+            parser.endGroup(name);
+        } else {
+            parser.endGroup();
+        }
     }
 }
