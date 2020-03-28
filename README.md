@@ -17,10 +17,12 @@ You also need a C++ compiler with C++17 support.
 
 avar,
 CBDT,
-CBLC (only IndexSubTable1),
+CBLC,
 CFF (mostly),
 CFF2,
 cmap,
+EBDT,
+EBLC,
 fvar,
 GDEF (mostly),
 glyf,

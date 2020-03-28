@@ -49,3 +49,5 @@ quint16 parseVheaNumberOfMetrics(ShadowParser parser);
 void parseHvarDeltaSet(Parser &parser);
 void parseItemVariationStore(Parser &parser);
 QVector<CblcIndex> parseCblcLocations(ShadowParser parser);
+void parseSbitSmallGlyphMetrics(Parser &parser);
+void parseSbitBigGlyphMetrics(Parser &parser);

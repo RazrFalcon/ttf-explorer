@@ -81,6 +81,8 @@ static QStringList parse(const QByteArray &fontData, TreeModel *model)
         else if (tag == "CFF ") table = "Compact Font Format Table";
         else if (tag == "CFF2") table = "Compact Font Format 2 Table";
         else if (tag == "cmap") table = "Character to Glyph Index Mapping Table";
+        else if (tag == "EBDT") table = "Embedded Bitmap Data Table";
+        else if (tag == "EBLC") table = "Embedded Bitmap Location Table";
         else if (tag == "fvar") table = "Font Variations Table";
         else if (tag == "GDEF") table = "Glyph Definition Table";
         else if (tag == "glyf") table = "Glyph Data Table";
@@ -142,6 +144,12 @@ static QStringList parse(const QByteArray &fontData, TreeModel *model)
         cblcLocations = parseCblcLocations(parser.shadow());
     }
 
+    QVector<CblcIndex> eblcLocations;
+    if (const auto eblc = algo::find_if(tables, [](const auto t){ return t.name == "EBLC"; })) {
+        parser.jumpTo(eblc->offset);
+        eblcLocations = parseCblcLocations(parser.shadow());
+    }
+
     for (const auto &table : tables) {
         parser.jumpTo(table.offset);
 
@@ -164,6 +172,10 @@ static QStringList parse(const QByteArray &fontData, TreeModel *model)
                 parseCff2(parser);
             } else if (table.name == "cmap") {
                 parseCmap(parser);
+            } else if (table.name == "EBDT") {
+                parseCbdt(eblcLocations, parser);
+            } else if (table.name == "EBLC") {
+                parseCblc(parser);
             } else if (table.name == "fvar") {
                 parseFvar(parser);
             } else if (table.name == "GDEF") {

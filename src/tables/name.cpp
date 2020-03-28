@@ -87,8 +87,18 @@ void parseName(Parser &parser)
     // Dedup offsets. There can be multiple records with the same offset.
     algo::dedup_vector_by_key(nameOffsets, &Range::start);
 
+    // Remove overlapping ranges.
+    for (int i = 0; i < nameOffsets.size(); ++i) {
+        const auto range = nameOffsets.at(i);
+        for (int j = i + 1; j < nameOffsets.size(); ++j) {
+            if (range.overlaps(nameOffsets.at(j))) {
+                nameOffsets.removeAt(j);
+            }
+        }
+    }
+
     for (const auto [i, range]: algo::enumerate(nameOffsets)) {
         parser.jumpTo(tableStart + stringOffset + range->start);
-        parser.readVariable<Utf16BE>(range->size(), QString("Record %1").arg(i)); // TODO: use name ID
+        parser.readVariable<Utf16BE>(range->size(), "Record");
     }
 }

@@ -46,6 +46,27 @@ static void parseSbitLineMetrics(Parser &parser)
     parser.readBytes(2, "Padding");
 }
 
+void parseSbitSmallGlyphMetrics(Parser &parser)
+{
+    parser.read<UInt8>("Height");
+    parser.read<UInt8>("Width");
+    parser.read<Int8>("X-axis bearing");
+    parser.read<Int8>("Y-axis bearing");
+    parser.read<UInt8>("Advance");
+}
+
+void parseSbitBigGlyphMetrics(Parser &parser)
+{
+    parser.read<UInt8>("Height");
+    parser.read<UInt8>("Width");
+    parser.read<Int8>("Horizontal X-axis bearing");
+    parser.read<Int8>("Horizontal Y-axis bearing");
+    parser.read<UInt8>("Horizontal advance");
+    parser.read<Int8>("Vertical X-axis bearing");
+    parser.read<Int8>("Vertical Y-axis bearing");
+    parser.read<UInt8>("Vertical advance");
+}
+
 void parseCblc(Parser &parser)
 {
     const auto start = parser.offset();
@@ -133,6 +154,24 @@ void parseCblc(Parser &parser)
             // TODO: check
             const auto count = info.lastGlyph - info.firstGlyph + 2;
             parser.readArray<Offset32>("Offsets", "Offset", quint32(count));
+        } else if (indexFormat == 2) {
+            parser.read<UInt32>("Image size");
+            parseSbitBigGlyphMetrics(parser);
+        } else if (indexFormat == 3) {
+            // TODO: check
+            const auto count = info.lastGlyph - info.firstGlyph + 2;
+            parser.readArray<Offset16>("Offsets", "Offset", quint32(count));
+        } else if (indexFormat == 4) {
+            const auto numGlyphs = parser.read<UInt32>("Number of glyphs");
+            for (uint i = 0; i <= numGlyphs; ++i) {
+                parser.read<GlyphId>("Glyph ID");
+                parser.read<Offset16>("Offset");
+            }
+        } else if (indexFormat == 5) {
+            parser.read<UInt32>("Image size");
+            parseSbitBigGlyphMetrics(parser);
+            const auto numGlyphs = parser.read<UInt32>("Number of glyphs");
+            parser.readArray<GlyphId>("Glyphs", "Glyph ID", numGlyphs);
         } else {
             throw "unsupported index format";
         }
@@ -163,6 +202,7 @@ QVector<CblcIndex> parseCblcLocations(ShadowParser parser)
         const auto offset = parser.read<Offset32>();
         parser.skip<UInt32>(); // Index tables size
         const auto numOfSubtables = parser.read<UInt32>();
+        parser.advance(36);
 
         subtableArrays.append(SubtableArray { offset, numOfSubtables });
     }
@@ -200,11 +240,72 @@ QVector<CblcIndex> parseCblcLocations(ShadowParser parser)
         const auto imageDataOffset = parser.read<Offset32>();
 
         if (indexFormat == 1) {
-            // TODO: check
             const auto count = quint32(info.lastGlyph - info.firstGlyph + 2);
             QVector<quint32> offsets;
             for (quint32 i = 0; i < count; ++i) {
                 offsets.append(imageDataOffset + parser.read<Offset32>());
+            }
+
+            algo::sort_all(offsets);
+            algo::dedup_vector(offsets);
+
+            for (int i = 0; i < offsets.size() - 1; ++i) {
+                const auto start = offsets.at(i);
+                const auto end = offsets.at(i + 1);
+                locations.append(CblcIndex { imageFormat, Range { start, end } });
+            }
+        } else if (indexFormat == 2) {
+            const auto imageSize = parser.read<UInt32>();
+
+            const auto count = quint32(info.lastGlyph - info.firstGlyph + 1);
+            quint32 offset = imageDataOffset;
+            for (quint32 i = 0; i < count; ++i) {
+                const auto start = offset;
+                offset += imageSize;
+                const auto end = offset;
+                locations.append(CblcIndex { imageFormat, Range { start, end } });
+            }
+        } else if (indexFormat == 3) {
+            const auto count = quint32(info.lastGlyph - info.firstGlyph + 2);
+            QVector<quint32> offsets;
+            for (quint32 i = 0; i < count; ++i) {
+                offsets.append(imageDataOffset + parser.read<Offset16>());
+            }
+
+            algo::sort_all(offsets);
+            algo::dedup_vector(offsets);
+
+            for (int i = 0; i < offsets.size() - 1; ++i) {
+                const auto start = offsets.at(i);
+                const auto end = offsets.at(i + 1);
+                locations.append(CblcIndex { imageFormat, Range { start, end } });
+            }
+        } else if (indexFormat == 4) {
+            const auto numGlyphs = parser.read<UInt32>();
+            QVector<quint32> offsets;
+            for (quint32 i = 0; i <= numGlyphs; ++i) {
+                parser.skip<GlyphId>();
+                offsets.append(imageDataOffset + parser.read<Offset16>());
+            }
+
+            algo::sort_all(offsets);
+            algo::dedup_vector(offsets);
+
+            for (int i = 0; i < offsets.size() - 1; ++i) {
+                const auto start = offsets.at(i);
+                const auto end = offsets.at(i + 1);
+                locations.append(CblcIndex { imageFormat, Range { start, end } });
+            }
+        } else if (indexFormat == 5) {
+            const auto imageSize = parser.read<UInt32>();
+            parser.advance(8); // big metrics
+            const auto numGlyphs = parser.read<UInt32>();
+
+            quint32 offset = imageDataOffset;
+            QVector<quint32> offsets;
+            for (quint32 i = 0; i <= numGlyphs; ++i) {
+                offsets.append(offset);
+                offset += imageSize;
             }
 
             algo::sort_all(offsets);

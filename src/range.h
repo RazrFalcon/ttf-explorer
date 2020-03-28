@@ -22,6 +22,12 @@ struct Range
     bool isSingle() const
     { return size() == 1; }
 
+    bool overlaps(const Range other) const
+    {
+        return (other.start >= start && other.start < end) ||
+               (other.end >= start && other.end < end);
+    }
+
     quint32 size() const
     { return end - start; }
 };
