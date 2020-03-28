@@ -86,6 +86,7 @@ static QStringList parse(const QByteArray &fontData, TreeModel *model)
         else if (tag == "cvt ") table = "Control Value Table";
         else if (tag == "EBDT") table = "Embedded Bitmap Data Table";
         else if (tag == "EBLC") table = "Embedded Bitmap Location Table";
+        else if (tag == "fpgm") table = "Font Program Table";
         else if (tag == "fvar") table = "Font Variations Table";
         else if (tag == "GDEF") table = "Glyph Definition Table";
         else if (tag == "glyf") table = "Glyph Data Table";
@@ -191,6 +192,8 @@ static QStringList parse(const QByteArray &fontData, TreeModel *model)
                 parseCbdt(eblcLocations, parser);
             } else if (table.name == "EBLC") {
                 parseCblc(parser);
+            } else if (table.name == "fpgm") {
+                parser.readBytes(table.length, "Instructions");
             } else if (table.name == "fvar") {
                 parseFvar(parser);
             } else if (table.name == "GDEF") {
