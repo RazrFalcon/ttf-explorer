@@ -76,6 +76,8 @@ static QStringList parse(const QByteArray &fontData, TreeModel *model)
 
         QString table;
              if (tag == "avar") table = "Axis Variations Table";
+        else if (tag == "bloc") table = "Bitmap Data Table";
+        else if (tag == "bdat") table = "Bitmap Data Table";
         else if (tag == "CBDT") table = "Color Bitmap Data Table";
         else if (tag == "CBLC") table = "Color Bitmap Location Table";
         else if (tag == "CFF ") table = "Compact Font Format Table";
@@ -150,6 +152,12 @@ static QStringList parse(const QByteArray &fontData, TreeModel *model)
         eblcLocations = parseCblcLocations(parser.shadow());
     }
 
+    QVector<CblcIndex> blocLocations;
+    if (const auto bloc = algo::find_if(tables, [](const auto t){ return t.name == "bloc"; })) {
+        parser.jumpTo(bloc->offset);
+        blocLocations = parseCblcLocations(parser.shadow());
+    }
+
     for (const auto &table : tables) {
         parser.jumpTo(table.offset);
 
@@ -162,6 +170,10 @@ static QStringList parse(const QByteArray &fontData, TreeModel *model)
         try {
             if (table.name == "avar") {
                 parseAvar(parser);
+            } else if (table.name == "bdat") {
+                parseCbdt(blocLocations, parser);
+            } else if (table.name == "bloc") {
+                parseCblc(parser);
             } else if (table.name == "CBDT") {
                 parseCbdt(cblcLocations, parser);
             } else if (table.name == "CBLC") {
