@@ -1,0 +1,18 @@
+[package]
+name = "core"
+version = "0.1.0"
+authors = ["Evgeniy Reizner <razrfalcon@gmail.com>"]
+edition = "2018"
+license = "MIT"
+
+[lib]
+name = "ttfcore"
+crate-type = ["staticlib"]
+
+[dependencies]
+ego-tree = "0.6.2"
+tinyvec = "0.3.3"
+
+[profile.release]
+lto = "fat"
+codegen-units = 1

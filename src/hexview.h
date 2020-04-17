@@ -26,7 +26,7 @@ class HexView : public QAbstractScrollArea
 {
     Q_OBJECT
 
-    static_assert(sizeof(HexViewByte) == 2);
+    static_assert(sizeof(HexViewByte) == 2, "");
 
 public:
     explicit HexView(QWidget *parent = nullptr);

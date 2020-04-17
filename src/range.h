@@ -4,9 +4,6 @@
 
 struct Range
 {
-    quint32 start = 0;
-    quint32 end = 0;
-
     bool contains(const quint32 index) const
     { return index >= start && index < end; }
 
@@ -30,4 +27,7 @@ struct Range
 
     quint32 size() const
     { return end - start; }
+
+    quint32 start = 0;
+    quint32 end = 0;
 };

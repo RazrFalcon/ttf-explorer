@@ -1,7 +1,11 @@
 #pragma once
 
 #include <QAbstractItemModel>
-#include <QStyledItemDelegate>
+
+#include "src/range.h"
+#include "src/ttfcorepp.h"
+
+struct ttfcore_tree;
 
 namespace Column
 {
@@ -14,88 +18,35 @@ namespace Column
     };
 }
 
-struct TreeItemData
-{
-    QString title;
-    QString value;
-    QString type;
-    quint32 start = 0;
-    quint32 end = 0;
-};
-
-class TreeItem
-{
-public:
-    TreeItem(const TreeItemData &data, TreeItem *parent = nullptr);
-    ~TreeItem();
-
-    TreeItem *parent()
-    { return m_parentItem; }
-
-    int row() const;
-
-    Qt::ItemFlags flags() const
-    { return Qt::ItemIsSelectable | Qt::ItemIsEnabled; }
-
-    TreeItem *child(int row)
-    { return m_childItems.value(row); }
-
-    QVector<TreeItem *> childrenList() const
-    { return m_childItems; }
-
-    int childrenCount() const
-    { return m_childItems.count(); }
-
-    bool hasChildren() const
-    { return !m_childItems.isEmpty(); }
-
-    bool appendChild(TreeItem *child);
-    void removeChild(TreeItem *child);
-    void removeChildren();
-
-    const TreeItemData& data() const
-    { return m_d; }
-
-    TreeItemData& data()
-    { return m_d; }
-
-    bool contains(const uint index) const
-    { return index >= m_d.start && index < m_d.end; }
-
-private:
-    TreeItem * const m_parentItem;
-    TreeItemData m_d;
-    QVector<TreeItem*> m_childItems; // TODO: optimize
-};
+using TreeItemId = uintptr_t;
 
 class TreeModel : public QAbstractItemModel
 {
 public:
-    explicit TreeModel(QObject *parent = nullptr);
-    ~TreeModel();
+    explicit TreeModel(TTFCore::Tree &&tree);
 
     QVariant data(const QModelIndex &index, int role) const;
     Qt::ItemFlags flags(const QModelIndex &index) const;
-    QVariant headerData(int section, Qt::Orientation orientation,
-                        int role = Qt::DisplayRole) const;
-    QModelIndex index(int row, int column,
-                      const QModelIndex &parent = QModelIndex()) const;
-    QModelIndex index(TreeItem *item) const;
+    QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
+    QModelIndex index(int row, int column, const QModelIndex &parent = QModelIndex()) const;
+    QModelIndex index(const TreeItemId id) const;
     QModelIndex parent(const QModelIndex &index) const;
     int rowCount(const QModelIndex &parent = QModelIndex()) const;
     int columnCount(const QModelIndex &parent = QModelIndex()) const;
-    void itemEditFinished(TreeItem *item);
 
-    TreeItem *itemByIndex(const QModelIndex &index) const;
-    TreeItem *itemByByte(const uint index) const;
-    TreeItem *rootItem() const;
+    QVector<Range> collectRanges() const;
 
-    TreeItem *appendChild(const TreeItemData &data, TreeItem *parent = nullptr);
-    void removeChild(TreeItem *item);
-
-    bool isEmpty() const;
-    void clear();
+    std::optional<TreeItemId> parentItem(const TreeItemId id) const;
+    QString itemTitle(const TreeItemId id) const;
+    Range itemRange(const TreeItemId id) const;
+    std::optional<TreeItemId> itemByByte(const uint index) const;
+    TreeItemId rootId() const { return m_rootId; }
 
 private:
-    TreeItem * const m_rootItem;
+    void collectRangesImpl(TreeItemId parentId, QVector<Range> &ranges) const;
+    std::optional<TreeItemId> itemByByteImpl(const uint index, const TreeItemId parentId) const;
+
+private:
+    const TreeItemId m_rootId = 1;
+    TTFCore::Tree m_tree;
 };

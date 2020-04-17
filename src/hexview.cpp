@@ -7,8 +7,6 @@
 
 #include <cmath>
 
-#include "algo.h"
-
 #include "hexview.h"
 
 static constexpr int BytesPerLine = 16;
@@ -17,7 +15,7 @@ static QVector<QStaticText> initHexTable(const QFont &font)
 {
     QVector<QStaticText> vec;
     for (int i = 0; i < 256; ++i) {
-        const auto text = QString::number(i, 16).toUpper().rightJustified(2, '0');
+        const auto text = QString::number(i, 16).toUpper().rightJustified(2, QLatin1Char('0'));
         QStaticText staticText(text);
         staticText.prepare(QTransform(), font);
         vec << staticText;
@@ -50,7 +48,7 @@ static QPixmap renderRegion(const QSize &size, const QRect &rect, const QColor &
 
 HexView::HexView(QWidget *parent)
     : QAbstractScrollArea(parent)
-    , m_hexTable(initHexTable(QFont("monospace")))
+    , m_hexTable(initHexTable(QFont(QLatin1String("monospace"))))
 {
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
@@ -59,10 +57,10 @@ HexView::HexView(QWidget *parent)
         viewport()->update();
     });
 
-    viewport()->setFont(QFont("monospace"));
+    viewport()->setFont(QFont(QLatin1String("monospace")));
 
     const auto fm = viewport()->fontMetrics();
-    m_charMetrics.width = fm.horizontalAdvance('0');
+    m_charMetrics.width = fm.horizontalAdvance(QLatin1Char('0'));
     m_charMetrics.padding = m_charMetrics.width / 2;
     m_charMetrics.height = fm.height();
     m_charMetrics.ascent = fm.ascent();
