@@ -487,7 +487,7 @@ impl<'a> Parser<'a> {
             return Ok(());
         }
 
-        self.begin_group_with_value(title, &len.to_string());
+        self.begin_group_with_value(title, len.to_string());
         for i in 0..len {
             self.read2::<T>(format!("{} {}", item, i))?;
         }

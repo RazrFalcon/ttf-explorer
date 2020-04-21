@@ -4,7 +4,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct ttfcore_error ttfcore_error;
 typedef struct ttfcore_tree ttfcore_tree;
 
 #ifdef __cplusplus

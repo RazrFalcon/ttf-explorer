@@ -12,6 +12,7 @@ pub mod head;
 pub mod hhea;
 pub mod hmtx;
 pub mod hvar;
+pub mod kern;
 pub mod loca;
 pub mod maxp;
 pub mod mvar;

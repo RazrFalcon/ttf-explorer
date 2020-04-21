@@ -234,6 +234,7 @@ fn parse_table(
 
             tables::hmtx::parse(number_of_metrics, number_of_glyphs, parser)?;
         }
+        b"kern" => tables::kern::parse(parser)?,
         b"loca" => {
             let head_data = find_table(table.index, b"head")?;
             let maxp_data = find_table(table.index, b"maxp")?;
@@ -313,6 +314,7 @@ fn parse_header(font_index: u32, tables: &mut Vec<FontTable>, parser: &mut Parse
             b"hhea" => "Horizontal Header Table",
             b"hmtx" => "Horizontal Metrics Table",
             b"HVAR" => "Horizontal Metrics Variations Table",
+            b"kern" => "Kerning Table",
             b"loca" => "Index to Location Table",
             b"maxp" => "Maximum Profile Table",
             b"MVAR" => "Metrics Variations Table",
