@@ -191,11 +191,21 @@ fn parse_simple_glyph(num_of_contours: u16, parser: &mut Parser) -> Result<()> {
 
     parser.begin_group("Flags");
     let mut all_flags = Vec::new();
+    let mut has_x_coords = false;
+    let mut has_y_coords = false;
     let total_points = last_point + 1;
     let mut points_left = total_points;
     while points_left > 0 {
         let flags = parser.read::<SimpleGlyphFlags>("Flag")?;
         all_flags.push(flags);
+
+        if flags.x_short() || !flags.x_is_same_or_positive_short() {
+            has_x_coords = true;
+        }
+
+        if flags.y_short() || !flags.y_is_same_or_positive_short() {
+            has_y_coords = true;
+        }
 
         let repeats = if flags.repeat_flag() {
             let repeats = parser.read::<u8>("Number of repeats")?;
@@ -212,41 +222,45 @@ fn parse_simple_glyph(num_of_contours: u16, parser: &mut Parser) -> Result<()> {
     }
     parser.end_group();
 
-    parser.begin_group("X-coordinates");
-    for flags in &all_flags {
-        if flags.x_short() {
-            if flags.x_is_same_or_positive_short() {
-                parser.read::<u8>("Coordinate")?;
+    if has_x_coords {
+        parser.begin_group("X-coordinates");
+        for flags in &all_flags {
+            if flags.x_short() {
+                if flags.x_is_same_or_positive_short() {
+                    parser.read::<u8>("Coordinate")?;
+                } else {
+                    parser.read::<NegativeU8>("Coordinate")?;
+                }
             } else {
-                parser.read::<NegativeU8>("Coordinate")?;
-            }
-        } else {
-            if flags.x_is_same_or_positive_short() {
-                // Nothing.
-            } else {
-                parser.read::<i16>("Coordinate")?;
+                if flags.x_is_same_or_positive_short() {
+                    // Nothing.
+                } else {
+                    parser.read::<i16>("Coordinate")?;
+                }
             }
         }
+        parser.end_group();
     }
-    parser.end_group();
 
-    parser.begin_group("Y-coordinates");
-    for flags in &all_flags {
-        if flags.y_short() {
-            if flags.y_is_same_or_positive_short() {
-                parser.read::<u8>("Coordinate")?;
+    if has_y_coords {
+        parser.begin_group("Y-coordinates");
+        for flags in &all_flags {
+            if flags.y_short() {
+                if flags.y_is_same_or_positive_short() {
+                    parser.read::<u8>("Coordinate")?;
+                } else {
+                    parser.read::<NegativeU8>("Coordinate")?;
+                }
             } else {
-                parser.read::<NegativeU8>("Coordinate")?;
-            }
-        } else {
-            if flags.y_is_same_or_positive_short() {
-                // Nothing.
-            } else {
-                parser.read::<i16>("Coordinate")?;
+                if flags.y_is_same_or_positive_short() {
+                    // Nothing.
+                } else {
+                    parser.read::<i16>("Coordinate")?;
+                }
             }
         }
+        parser.end_group();
     }
-    parser.end_group();
 
     Ok(())
 }

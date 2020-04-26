@@ -337,6 +337,10 @@ fn parse_header(font_index: u32, tables: &mut Vec<FontTable>, parser: &mut Parse
             continue;
         }
 
+        if length == 0 {
+            continue;
+        }
+
         tables.push(FontTable {
             index: font_index,
             title: table_name.into(),
