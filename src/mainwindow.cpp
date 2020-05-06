@@ -35,6 +35,7 @@ MainWindow::MainWindow(QWidget *parent)
     }
 
     m_treeView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
+    m_treeView->setVerticalScrollMode(QTreeView::ScrollPerPixel);
 
     connect(m_hexView, &HexView::byteClicked, this, &MainWindow::onHexViewByteClicked);
 

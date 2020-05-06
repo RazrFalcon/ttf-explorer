@@ -95,6 +95,7 @@ impl CompositeGlyphFlags {
     #[inline] fn more_components(self) -> bool { self.0 & 0x0020 != 0 }
     #[inline] fn we_have_an_x_and_y_scale(self) -> bool { self.0 & 0x0040 != 0 }
     #[inline] fn we_have_a_two_by_two(self) -> bool { self.0 & 0x0080 != 0 }
+    #[inline] fn we_have_instructions(self) -> bool { self.0 & 0x0100 != 0 }
 }
 
 impl FromData for CompositeGlyphFlags {
@@ -304,6 +305,9 @@ fn parse_composite_glyph(parser: &mut Parser) -> Result<()> {
 
     if flags.more_components() {
         parse_composite_glyph(parser)?;
+    } else if flags.we_have_instructions() {
+        let number_of_instructions = parser.read::<u16>("Number of instructions")?;
+        parser.read_bytes(number_of_instructions as usize, "Instructions")?;
     }
 
     Ok(())
