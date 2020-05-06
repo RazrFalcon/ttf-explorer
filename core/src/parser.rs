@@ -635,8 +635,10 @@ impl std::ops::Index<usize> for U8Bits {
 
 impl std::fmt::Display for U8Bits {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let n = self.0.reverse_bits();
+
         for i in 0..8 {
-            write!(f, "{}", (self.0 >> i) & 1)?;
+            write!(f, "{}", (n >> i) & 1)?;
         }
 
         Ok(())
