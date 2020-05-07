@@ -15,10 +15,81 @@ mod ffi;
 mod parser;
 mod tables;
 
+
+#[derive(Clone, Debug)]
+pub enum TitleKind {
+    Action,
+    Class,
+    Code,
+    Delta,
+    Endpoint,
+    Glyph,
+    Index,
+    Name,
+    Number,
+    Offset,
+    String,
+    Subroutine,
+    Value,
+    StaticString(&'static str),
+    OwnedString(String),
+}
+
+impl TitleKind {
+    pub fn as_str(&self) -> &str {
+        match self {
+            TitleKind::StaticString(s) => s,
+            TitleKind::OwnedString(ref s) => s,
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl From<&'static str> for TitleKind {
+    fn from(s: &'static str) -> Self {
+        TitleKind::StaticString(s)
+    }
+}
+
+impl From<String> for TitleKind {
+    fn from(s: String) -> Self {
+        TitleKind::OwnedString(s)
+    }
+}
+
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum ValueType {
+    None,
+    Magic,
+    Int8,
+    Int16,
+    Int32,
+    UInt8,
+    UInt16,
+    UInt24,
+    UInt32,
+    F2DOT14,
+    Fixed,
+    Offset16,
+    Offset32,
+    GlyphId,
+    Tag,
+    BitFlags,
+    Masks,
+    PlatformId,
+    OffsetSize,
+    LongDateTime,
+    String,
+    Bytes,
+}
+
+
 pub struct NodeData {
-    pub title: String,
+    pub title: TitleKind,
+    pub index: Option<u32>,
     pub value: String,
-    pub value_type: String, // TODO: to enum
+    pub value_type: ValueType,
     pub range: std::ops::Range<usize>,
 }
 
@@ -53,7 +124,7 @@ enum FontMagic {
 
 impl FromData for FontMagic {
     const SIZE: usize = 4;
-    const NAME: &'static str = "Magic";
+    const NAME: ValueType = ValueType::Magic;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
@@ -148,7 +219,7 @@ fn parse(
         let node_id = parser.current_group_node();
 
         parser.jump_to(table.range.start)?;
-        parser.begin_group(&table.title);
+        parser.begin_group(table.title.clone());
 
         if let Err(e) = parse_table(data, &tables, table, &mut parser) {
             use std::fmt::Write;
@@ -197,7 +268,11 @@ fn parse_table(
         b"CFF " => tables::cff::parse(parser)?,
         b"CFF2" => tables::cff2::parse(parser)?,
         b"cmap" => tables::cmap::parse(parser)?,
-        b"cvt " => parser.read_array::<i16>("Values", "Value", table.range.len() / 2)?,
+        b"cvt " => {
+            for i in 0..table.range.len() / 2 {
+                parser.read_index::<i16>(TitleKind::Value, i as u32)?;
+            }
+        }
         b"EBDT" => {
             let cblc_data = find_table(table.index, b"EBLC")?;
             let indices = tables::cblc::collect_indices(cblc_data)?;

@@ -19,8 +19,10 @@ uintptr_t ttfcore_tree_item_child_index(const ttfcore_tree *tree, uintptr_t id);
 uintptr_t ttfcore_tree_item_children_count(const ttfcore_tree *tree, uintptr_t id);
 bool ttfcore_tree_item_has_children(const ttfcore_tree *tree, uintptr_t id);
 const char *ttfcore_tree_item_title(const ttfcore_tree *tree, uintptr_t id, uintptr_t *len);
+uint8_t ttfcore_tree_item_title_type(const ttfcore_tree *tree, uintptr_t id);
+int ttfcore_tree_item_index(const ttfcore_tree *tree, uintptr_t id);
 const char *ttfcore_tree_item_value(const ttfcore_tree *tree, uintptr_t id, uintptr_t *len);
-const char *ttfcore_tree_item_value_type(const ttfcore_tree *tree, uintptr_t id, uintptr_t *len);
+uint8_t ttfcore_tree_item_value_type(const ttfcore_tree *tree, uintptr_t id);
 void ttfcore_tree_item_range(const ttfcore_tree *tree, uintptr_t id, uintptr_t *start, uintptr_t *end);
 
 #ifdef __cplusplus

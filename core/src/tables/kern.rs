@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use crate::parser::*;
-use crate::{Error, Result};
+use crate::{TitleKind, ValueType, Error, Result};
 
 pub fn parse(parser: &mut Parser) -> Result<()> {
     // The `kern` table has two variants: OpenType one and Apple one.
@@ -30,7 +30,7 @@ mod ot {
     struct Coverage(u8);
 
     impl FromData for Coverage {
-        const NAME: &'static str = "BitFlags";
+        const NAME: ValueType = ValueType::BitFlags;
 
         #[inline]
         fn parse(data: &[u8]) -> Result<Self> {
@@ -90,7 +90,7 @@ mod aat {
     struct Coverage(u8);
 
     impl FromData for Coverage {
-        const NAME: &'static str = "BitFlags";
+        const NAME: ValueType = ValueType::BitFlags;
 
         #[inline]
         fn parse(data: &[u8]) -> Result<Self> {
@@ -121,7 +121,7 @@ mod aat {
     struct EntryFlags(u16);
 
     impl FromData for EntryFlags {
-        const NAME: &'static str = "BitFlags";
+        const NAME: ValueType = ValueType::BitFlags;
 
         #[inline]
         fn parse(data: &[u8]) -> Result<Self> {
@@ -150,7 +150,7 @@ mod aat {
     struct Action(u16);
 
     impl FromData for Action {
-        const NAME: &'static str = "BitFlags";
+        const NAME: ValueType = ValueType::BitFlags;
 
         #[inline]
         fn parse(data: &[u8]) -> Result<Self> {
@@ -294,7 +294,7 @@ mod aat {
         parser.begin_group("Class subtable");
         parser.read::<GlyphId>("First glyph")?;
         let num_glyphs = parser.read::<u16>("Number of glyphs")?;
-        parser.read_array::<u8>("Classes", "Class", num_glyphs as usize)?;
+        parser.read_array::<u8>("Classes", TitleKind::Class, num_glyphs as usize)?;
         parser.end_group();
 
         parser.jump_to(start + state_array_offset)?;
@@ -317,7 +317,7 @@ mod aat {
 
         parser.jump_to(start + values_offset)?;
         let num_of_actions = ((subtable_length - 8) - (parser.offset() - start)) / 2;
-        parser.read_array::<Action>("Actions", "Action", num_of_actions)?;
+        parser.read_array::<Action>("Actions", TitleKind::Action, num_of_actions)?;
 
         Ok(())
     }
@@ -428,7 +428,7 @@ mod aat {
                     parser.begin_group("Left-hand class table");
                     parser.read::<GlyphId>("First glyph")?;
                     let count = parser.read::<u16>("Number of glyphs")?;
-                    parser.read_array::<u16>("Classes", "Class", count as usize)?;
+                    parser.read_array::<u16>("Classes", TitleKind::Class, count as usize)?;
                     parser.end_group();
                 }
                 OffsetKind::RightHandTable => {
@@ -436,12 +436,12 @@ mod aat {
                     parser.begin_group("Right-hand class table");
                     parser.read::<GlyphId>("First glyph")?;
                     let count = parser.read::<u16>("Number of glyphs")?;
-                    parser.read_array::<u16>("Classes", "Class", count as usize)?;
+                    parser.read_array::<u16>("Classes", TitleKind::Class, count as usize)?;
                     parser.end_group();
                 }
                 OffsetKind::Array => {
                     parser.jump_to(subtable_start + offset)?;
-                    parser.read_array::<i16>("Kerning values", "Value", rows * columns)?;
+                    parser.read_array::<i16>("Kerning values", TitleKind::Value, rows * columns)?;
                 }
             }
         }
@@ -471,10 +471,10 @@ mod aat {
         let right_hand_classes = parser.read::<u8>("Number of right-hand classes")?;
         parser.read::<u8>("Reserved")?;
 
-        parser.read_array::<i16>("Kerning values", "Value", kern_values as usize)?;
-        parser.read_array::<u8>("Left-hand classes", "Class", glyph_count as usize)?;
-        parser.read_array::<u8>("Right-hand classes", "Class", glyph_count as usize)?;
-        parser.read_array::<u8>("Indices", "Index",
+        parser.read_array::<i16>("Kerning values", TitleKind::Value, kern_values as usize)?;
+        parser.read_array::<u8>("Left-hand classes", TitleKind::Class, glyph_count as usize)?;
+        parser.read_array::<u8>("Right-hand classes", TitleKind::Class, glyph_count as usize)?;
+        parser.read_array::<u8>("Indices", TitleKind::Index,
                                 left_hand_classes as usize * right_hand_classes as usize)?;
 
         let left = subtable_len as isize - (parser.offset() - subtable_start) as isize;

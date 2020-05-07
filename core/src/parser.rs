@@ -1,7 +1,7 @@
 use std::ops::Range;
 use std::convert::TryInto;
 
-use crate::{NodeData, Error, Result};
+use crate::{NodeData, TitleKind, ValueType, Error, Result};
 
 
 pub trait TrySlice<'a> {
@@ -29,14 +29,14 @@ pub trait FromData: std::fmt::Display + Sized {
     /// In this case `size_of::<Self>()` == 1, but `FromData::SIZE` == 2.
     const SIZE: usize = std::mem::size_of::<Self>();
 
-    const NAME: &'static str;
+    const NAME: ValueType;
 
     /// Parses an object from a raw data.
     fn parse(data: &[u8]) -> Result<Self>;
 }
 
 impl FromData for u8 {
-    const NAME: &'static str = "UInt8";
+    const NAME: ValueType = ValueType::UInt8;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
@@ -45,7 +45,7 @@ impl FromData for u8 {
 }
 
 impl FromData for i8 {
-    const NAME: &'static str = "Int8";
+    const NAME: ValueType = ValueType::Int8;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
@@ -54,7 +54,7 @@ impl FromData for i8 {
 }
 
 impl FromData for u16 {
-    const NAME: &'static str = "UInt16";
+    const NAME: ValueType = ValueType::UInt16;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
@@ -63,7 +63,7 @@ impl FromData for u16 {
 }
 
 impl FromData for i16 {
-    const NAME: &'static str = "Int16";
+    const NAME: ValueType = ValueType::Int16;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
@@ -72,7 +72,7 @@ impl FromData for i16 {
 }
 
 impl FromData for u32 {
-    const NAME: &'static str = "UInt32";
+    const NAME: ValueType = ValueType::UInt32;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
@@ -81,7 +81,7 @@ impl FromData for u32 {
 }
 
 impl FromData for i32 {
-    const NAME: &'static str = "Int32";
+    const NAME: ValueType = ValueType::Int32;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
@@ -96,7 +96,7 @@ pub struct U24(pub u32);
 
 impl FromData for U24 {
     const SIZE: usize = 3;
-    const NAME: &'static str = "UInt24";
+    const NAME: ValueType = ValueType::UInt24;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
@@ -123,7 +123,7 @@ impl F2DOT14 {
 }
 
 impl FromData for F2DOT14 {
-    const NAME: &'static str = "f2dot14";
+    const NAME: ValueType = ValueType::F2DOT14;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
@@ -143,7 +143,7 @@ pub struct Fixed(pub f32);
 
 impl FromData for Fixed {
     const SIZE: usize = 4;
-    const NAME: &'static str = "Fixed";
+    const NAME: ValueType = ValueType::Fixed;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
@@ -163,7 +163,7 @@ impl std::fmt::Display for Fixed {
 pub struct LongDateTime(pub u64);
 
 impl FromData for LongDateTime {
-    const NAME: &'static str = "LongDateTime";
+    const NAME: ValueType = ValueType::LongDateTime;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
@@ -189,7 +189,7 @@ impl Offset16 {
 }
 
 impl FromData for Offset16 {
-    const NAME: &'static str = "Offset16";
+    const NAME: ValueType = ValueType::Offset16;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
@@ -215,7 +215,7 @@ impl OptionalOffset16 {
 }
 
 impl FromData for OptionalOffset16 {
-    const NAME: &'static str = "Offset16";
+    const NAME: ValueType = ValueType::Offset16;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
@@ -245,7 +245,7 @@ impl Offset32 {
 }
 
 impl FromData for Offset32 {
-    const NAME: &'static str = "Offset32";
+    const NAME: ValueType = ValueType::Offset32;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
@@ -271,7 +271,7 @@ impl OptionalOffset32 {
 }
 
 impl FromData for OptionalOffset32 {
-    const NAME: &'static str = "Offset32";
+    const NAME: ValueType = ValueType::Offset32;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
@@ -294,7 +294,7 @@ impl std::fmt::Display for OptionalOffset32 {
 pub struct GlyphId(pub u16);
 
 impl FromData for GlyphId {
-    const NAME: &'static str = "GlyphId";
+    const NAME: ValueType = ValueType::GlyphId;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
@@ -348,23 +348,35 @@ impl<'a> Parser<'a> {
         self.parent_id
     }
 
-    pub fn begin_group<S: Into<String>>(&mut self, title: S) {
+    pub fn begin_group<S: Into<TitleKind>>(&mut self, title: S) {
         self.parent_id = self.tree.get_mut(self.parent_id).unwrap().append(NodeData {
             title: title.into(),
+            index: None,
             value: String::new(),
-            value_type: String::new(),
+            value_type: ValueType::None,
+            range: self.offset..self.offset, // End offset will be set later in `end_group()`.
+        }).id();
+    }
+
+    pub fn begin_group_with_index(&mut self, title: TitleKind, index: u32) {
+        self.parent_id = self.tree.get_mut(self.parent_id).unwrap().append(NodeData {
+            title,
+            index: Some(index),
+            value: String::new(),
+            value_type: ValueType::None,
             range: self.offset..self.offset, // End offset will be set later in `end_group()`.
         }).id();
     }
 
     pub fn begin_group_with_value<S1, S2>(&mut self, title: S1, value: S2)
-        where S1: Into<String>,
+        where S1: Into<TitleKind>,
               S2: Into<String>,
     {
         self.parent_id = self.tree.get_mut(self.parent_id).unwrap().append(NodeData {
             title: title.into(),
+            index: None,
             value: value.into(),
-            value_type: String::new(),
+            value_type: ValueType::None,
             range: self.offset..self.offset, // End offset will be set later in `end_group()`.
         }).id();
     }
@@ -375,7 +387,7 @@ impl<'a> Parser<'a> {
         self.parent_id = node.parent().unwrap().id();
     }
 
-    pub fn end_group_with_title<S: Into<String>>(&mut self, title: S) {
+    pub fn end_group_with_title<S: Into<TitleKind>>(&mut self, title: S) {
         let mut node = self.tree.get_mut(self.parent_id).unwrap();
         node.value().title = title.into();
         node.value().range.end = self.offset;
@@ -383,7 +395,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn end_group_with_title_and_value<S1, S2>(&mut self, title: S1, value: S2)
-        where S1: Into<String>,
+        where S1: Into<TitleKind>,
               S2: Into<String>,
     {
         let mut node = self.tree.get_mut(self.parent_id).unwrap();
@@ -433,23 +445,34 @@ impl<'a> Parser<'a> {
     }
 
     #[inline]
-    pub fn read<T: FromData>(&mut self, title: &str) -> Result<T> {
-        self.read2(title.into())
+    pub fn read<T: FromData>(&mut self, title: &'static str) -> Result<T> {
+        let start = self.offset;
+        let value = self.read_bytes_impl(T::SIZE).and_then(T::parse)?;
+        self.add_child(title.into(), None, value.to_string(), T::NAME, start..self.offset);
+        Ok(value)
     }
 
     #[inline]
     pub fn read2<T: FromData>(&mut self, title: String) -> Result<T> {
         let start = self.offset;
         let value = self.read_bytes_impl(T::SIZE).and_then(T::parse)?;
-        self.add_child(title, value.to_string(), T::NAME.into(), start..self.offset);
+        self.add_child(title.into(), None, value.to_string(), T::NAME, start..self.offset);
         Ok(value)
     }
 
     #[inline]
-    pub fn read_bytes<S: Into<String>>(&mut self, len: usize, title: S) -> Result<&'a [u8]> {
+    pub fn read_index<T: FromData>(&mut self, title: TitleKind, n: u32) -> Result<T> {
+        let start = self.offset;
+        let value = self.read_bytes_impl(T::SIZE).and_then(T::parse)?;
+        self.add_child(title, Some(n), value.to_string(), T::NAME, start..self.offset);
+        Ok(value)
+    }
+
+    #[inline]
+    pub fn read_bytes<S: Into<TitleKind>>(&mut self, len: usize, title: S) -> Result<&'a [u8]> {
         let start = self.offset;
         let value = self.read_bytes_impl(len)?;
-        self.add_child(title.into(), String::new(), "Bytes".into(), start..self.offset);
+        self.add_child(title.into(), None, String::new(), ValueType::Bytes, start..self.offset);
         Ok(value)
     }
 
@@ -461,44 +484,52 @@ impl<'a> Parser<'a> {
     }
 
     #[inline]
-    pub fn read_string<S: Into<String>>(&mut self, len: usize, title: S) -> Result<&'a str> {
+    pub fn read_string<S: Into<TitleKind>>(&mut self, len: usize, title: S, index: Option<u32>) -> Result<&'a str> {
         let start = self.offset;
         let bytes = self.read_bytes_impl(len)?;
         let str = std::str::from_utf8(bytes).map_err(|_| Error::InvalidValue)?;
 
-        self.add_child(title.into(), str.to_string(), "String".into(), start..self.offset);
+        self.add_child(title.into(), index, str.to_string(), ValueType::String, start..self.offset);
 
         Ok(str)
     }
 
     #[inline]
     pub fn read_value<S1, S2>(&mut self, len: usize, title: S1, value: S2) -> Result<()>
-        where S1: Into<String>,
+        where S1: Into<TitleKind>,
               S2: Into<String>,
     {
-        self.add_child(title.into(), value.into(), "Bytes".into(), self.offset..self.offset+len);
+        self.add_child(title.into(), None, value.into(), ValueType::Bytes, self.offset..self.offset+len);
         self.read_bytes_impl(len)?;
         Ok(())
     }
 
     #[inline]
-    pub fn read_array<T: FromData>(&mut self, title: &str, item: &str, len: usize) -> Result<()> {
+    pub fn read_array<T: FromData>(&mut self, title: &'static str, item: TitleKind, len: usize) -> Result<()> {
         if len == 0 {
             return Ok(());
         }
 
         self.begin_group_with_value(title, len.to_string());
         for i in 0..len {
-            self.read2::<T>(format!("{} {}", item, i))?;
+            self.read_index::<T>(item.clone(), i as u32)?;
         }
         self.end_group();
         Ok(())
     }
 
     #[inline]
-    fn add_child(&mut self, title: String, value: String, value_type: String, range: Range<usize>) {
+    fn add_child(
+        &mut self,
+        title: TitleKind,
+        index: Option<u32>,
+        value: String,
+        value_type: ValueType,
+        range: Range<usize>,
+    ) {
         self.tree.get_mut(self.parent_id).unwrap().append(NodeData {
             title,
+            index,
             value,
             value_type,
             range,
@@ -603,7 +634,7 @@ impl std::fmt::Display for Tag {
 }
 
 impl FromData for Tag {
-    const NAME: &'static str = "Tag";
+    const NAME: ValueType = ValueType::GlyphId;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {

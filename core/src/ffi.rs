@@ -1,6 +1,6 @@
 use std::os::raw::c_char;
 
-use crate::NodeData;
+use crate::{NodeData, TitleKind, ValueType};
 
 #[allow(non_camel_case_types)]
 #[repr(C)]
@@ -41,8 +41,9 @@ pub extern "C" fn ttfcore_parse_data(data: *const c_char, len: i32, tree: *mut *
 
     let mut rtree = ego_tree::Tree::with_capacity(NodeData {
         title: "root".into(),
+        index: None,
         value: String::new(),
-        value_type: String::new(),
+        value_type: ValueType::None,
         range: 0..len as usize,
     }, 0xFFFF);
     let mut warnings = String::new();
@@ -139,7 +140,39 @@ fn get_item_str<P>(tree: *const ttfcore_tree, id: usize, p: P, len: *mut usize) 
 
 #[no_mangle]
 pub extern "C" fn ttfcore_tree_item_title(tree: *const ttfcore_tree, id: usize, len: *mut usize) -> *const c_char {
-    get_item_str(tree, id, |d| &d.title, len)
+    get_item_str(tree, id, |d| &d.title.as_str(), len)
+}
+
+#[no_mangle]
+pub extern "C" fn ttfcore_tree_item_title_type(tree: *const ttfcore_tree, id: usize) -> u8 {
+    unsafe {
+        let id: ego_tree::NodeId = std::mem::transmute(id);
+        match (*tree).tree.get(id).unwrap().value().title {
+            TitleKind::StaticString(_)  => 0,
+            TitleKind::OwnedString(_)   => 0,
+            TitleKind::Action           => 1,
+            TitleKind::Class            => 2,
+            TitleKind::Code             => 3,
+            TitleKind::Delta            => 4,
+            TitleKind::Endpoint         => 5,
+            TitleKind::Glyph            => 6,
+            TitleKind::Index            => 7,
+            TitleKind::Name             => 8,
+            TitleKind::Number           => 9,
+            TitleKind::Offset           => 10,
+            TitleKind::String           => 11,
+            TitleKind::Subroutine       => 12,
+            TitleKind::Value            => 13,
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ttfcore_tree_item_index(tree: *const ttfcore_tree, id: usize) -> i32 {
+    unsafe {
+        let id: ego_tree::NodeId = std::mem::transmute(id);
+        (*tree).tree.get(id).unwrap().value().index.map(|i| i as i32).unwrap_or(-1)
+    }
 }
 
 #[no_mangle]
@@ -148,8 +181,11 @@ pub extern "C" fn ttfcore_tree_item_value(tree: *const ttfcore_tree, id: usize, 
 }
 
 #[no_mangle]
-pub extern "C" fn ttfcore_tree_item_value_type(tree: *const ttfcore_tree, id: usize, len: *mut usize) -> *const c_char {
-    get_item_str(tree, id, |d| &d.value_type, len)
+pub extern "C" fn ttfcore_tree_item_value_type(tree: *const ttfcore_tree, id: usize) -> u8 {
+    unsafe {
+        let id: ego_tree::NodeId = std::mem::transmute(id);
+        (*tree).tree.get(id).unwrap().value().value_type as u8
+    }
 }
 
 #[no_mangle]

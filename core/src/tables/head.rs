@@ -1,12 +1,12 @@
 use crate::parser::*;
-use crate::{Error, Result};
+use crate::{ValueType, Error, Result};
 use super::IndexToLocFormat;
 
 #[derive(Clone, Copy, Debug)]
 struct HeadFlags(u16);
 
 impl FromData for HeadFlags {
-    const NAME: &'static str = "BitFlags";
+    const NAME: ValueType = ValueType::BitFlags;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
@@ -48,7 +48,7 @@ impl std::fmt::Display for HeadFlags {
 struct MacStyleFlags(u16);
 
 impl FromData for MacStyleFlags {
-    const NAME: &'static str = "BitFlags";
+    const NAME: ValueType = ValueType::BitFlags;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {

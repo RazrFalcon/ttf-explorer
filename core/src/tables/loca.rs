@@ -1,5 +1,5 @@
 use crate::parser::*;
-use crate::Result;
+use crate::{TitleKind, Result};
 use super::IndexToLocFormat;
 
 pub fn parse(
@@ -8,12 +8,12 @@ pub fn parse(
     parser: &mut Parser,
 ) -> Result<()> {
     if format == IndexToLocFormat::Short {
-        for _ in 0..=number_of_glyphs {
-            parser.read::<Offset16>("Offset")?;
+        for i in 0..=number_of_glyphs {
+            parser.read_index::<Offset16>(TitleKind::Offset, i as u32)?;
         }
     } else {
-        for _ in 0..=number_of_glyphs {
-            parser.read::<Offset32>("Offset")?;
+        for i in 0..=number_of_glyphs {
+            parser.read_index::<Offset32>(TitleKind::Offset, i as u32)?;
         }
     }
 

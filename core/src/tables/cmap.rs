@@ -1,5 +1,5 @@
 use crate::parser::*;
-use crate::{Error, Result};
+use crate::{TitleKind, Error, Result};
 use super::name::{self, PlatformId};
 
 struct Record {
@@ -104,7 +104,7 @@ fn parse_language32(platform_id: PlatformId, parser: &mut Parser) -> Result<()> 
 fn parse_format0(platform_id: PlatformId, parser: &mut Parser) -> Result<()> {
     parser.read::<u16>("Subtable size")?;
     parse_language16(platform_id, parser)?;
-    parser.read_array::<u8>("Glyphs", "Glyph", 256)
+    parser.read_array::<u8>("Glyphs", TitleKind::Glyph, 256)
 }
 
 fn parse_format2(platform_id: PlatformId, parser: &mut Parser) -> Result<()> {
@@ -115,7 +115,7 @@ fn parse_format2(platform_id: PlatformId, parser: &mut Parser) -> Result<()> {
     let mut sub_headers_count = 0;
     parser.begin_group_with_value("SubHeader keys", "256");
     for i in 0..256 {
-        let key = parser.read::<u16>(&format!("Key {}", i))?; // TODO: this
+        let key = parser.read2::<u16>(format!("Key {}", i))?; // TODO: this
         sub_headers_count = std::cmp::max(sub_headers_count, (key / 8) as u16);
     }
     parser.end_group();
@@ -136,7 +136,7 @@ fn parse_format2(platform_id: PlatformId, parser: &mut Parser) -> Result<()> {
     //       but looks like ranges can overlap and ttf-explorer doesn't support this
 
     let tail_size = table_size - (parser.offset() - table_start);
-    parser.read_array::<GlyphId>("Glyph index array", "Glyph", tail_size / 2)?;
+    parser.read_array::<GlyphId>("Glyph index array", TitleKind::Glyph, tail_size / 2)?;
 
     Ok(())
 }
@@ -150,14 +150,14 @@ fn parse_format4(platform_id: PlatformId, parser: &mut Parser) -> Result<()> {
     parser.read::<u16>("Search range")?;
     parser.read::<u16>("Entry selector")?;
     parser.read::<u16>("Range shift")?;
-    parser.read_array::<u16>("End character codes", "Code", seg_count)?;
+    parser.read_array::<u16>("End character codes", TitleKind::Code, seg_count)?;
     parser.read::<u16>("Reserved")?;
-    parser.read_array::<u16>("Start character codes", "Code", seg_count)?;
-    parser.read_array::<i16>("Deltas", "Delta", seg_count)?;
-    parser.read_array::<u16>("Offsets into Glyph index array", "Offset", seg_count)?;
+    parser.read_array::<u16>("Start character codes", TitleKind::Code, seg_count)?;
+    parser.read_array::<i16>("Deltas", TitleKind::Delta, seg_count)?;
+    parser.read_array::<u16>("Offsets into Glyph index array", TitleKind::Offset, seg_count)?;
 
     let tail_size = table_size - (parser.offset() - table_start);
-    parser.read_array::<GlyphId>("Glyph index array", "Glyph", tail_size / 2)?;
+    parser.read_array::<GlyphId>("Glyph index array", TitleKind::Glyph, tail_size / 2)?;
 
     Ok(())
 }
@@ -167,7 +167,7 @@ fn parse_format6(platform_id: PlatformId, parser: &mut Parser) -> Result<()> {
     parse_language16(platform_id, parser)?;
     parser.read::<u16>("First code")?;
     let count = parser.read::<u16>("Number of codes")? as usize;
-    parser.read_array::<GlyphId>("Glyph index array", "Glyph", count)?;
+    parser.read_array::<GlyphId>("Glyph index array", TitleKind::Glyph, count)?;
 
     Ok(())
 }
@@ -198,7 +198,7 @@ fn parse_format10(platform_id: PlatformId, parser: &mut Parser) -> Result<()> {
     parse_language32(platform_id, parser)?;
     parser.read::<u32>("First code")?;
     let count = parser.read::<u32>("Number of codes")? as usize;
-    parser.read_array::<GlyphId>("Glyph index array", "Glyph", count)?;
+    parser.read_array::<GlyphId>("Glyph index array", TitleKind::Glyph, count)?;
 
     Ok(())
 }

@@ -19,6 +19,7 @@ public:
     static std::pair<Tree, QString> parse(const QByteArray &data);
 
     QString itemTitle(const TreeItemId id) const;
+    std::optional<quint32> itemIndex(const TreeItemId id) const;
     QString itemValue(const TreeItemId id) const;
     QString itemValueType(const TreeItemId id) const;
     Range itemRange(const TreeItemId id) const;

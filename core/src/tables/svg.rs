@@ -39,7 +39,7 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
         } else {
             // Otherwise read as string.
             // According to the spec, it must be in UTF-8, so we are fine.
-            parser.read_string(range.len(), "SVG")?;
+            parser.read_string(range.len(), "SVG", None)?;
         }
     }
 

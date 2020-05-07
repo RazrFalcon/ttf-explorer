@@ -1,11 +1,11 @@
 use crate::parser::*;
-use crate::{Error, Result};
+use crate::{TitleKind, ValueType, Error, Result};
 
 #[derive(Clone, Copy, Debug)]
 struct SbixFlags(u16);
 
 impl FromData for SbixFlags {
-    const NAME: &'static str = "BitFlags";
+    const NAME: ValueType = ValueType::BitFlags;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
@@ -43,7 +43,7 @@ pub fn parse(number_of_glyphs: u16, parser: &mut Parser) -> Result<()> {
     let mut offsets = Vec::new();
     parser.begin_group_with_value("Offsets", num_strikes.to_string());
     for i in 0..num_strikes {
-        let offset = parser.read2::<Offset32>(format!("Offset {}", i))?.to_usize();
+        let offset = parser.read_index::<Offset32>(TitleKind::Offset, i)?.to_usize();
         offsets.push(offset);
     }
     parser.end_group();

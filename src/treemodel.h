@@ -1,6 +1,8 @@
 #pragma once
 
 #include <QAbstractItemModel>
+#include <QStyledItemDelegate>
+#include <QStaticText>
 
 #include "src/range.h"
 #include "src/ttfcorepp.h"
@@ -20,6 +22,20 @@ namespace Column
 
 using TreeItemId = uintptr_t;
 
+class TitleItemDelegate : public QStyledItemDelegate
+{
+public:
+    TitleItemDelegate(QObject* parent = nullptr) : QStyledItemDelegate(parent) {}
+
+protected:
+    void paint(QPainter* painter, const QStyleOptionViewItem& option,
+               const QModelIndex& index) const override;
+
+private:
+    // Keep indices string representation since `QString::number` is expensive.
+    mutable QVector<QString> m_indexCache;
+};
+
 class TreeModel : public QAbstractItemModel
 {
 public:
@@ -38,6 +54,7 @@ public:
 
     std::optional<TreeItemId> parentItem(const TreeItemId id) const;
     QString itemTitle(const TreeItemId id) const;
+    std::optional<quint32> itemIndex(const TreeItemId id) const;
     Range itemRange(const TreeItemId id) const;
     std::optional<TreeItemId> itemByByte(const uint index) const;
     TreeItemId rootId() const { return m_rootId; }

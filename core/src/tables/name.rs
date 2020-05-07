@@ -1,5 +1,5 @@
 use crate::parser::*;
-use crate::{Error, Result};
+use crate::{ValueType, Error, Result};
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum PlatformId {
@@ -12,7 +12,7 @@ pub enum PlatformId {
 
 impl FromData for PlatformId {
     const SIZE: usize = 2;
-    const NAME: &'static str = "PlatformId";
+    const NAME: ValueType = ValueType::PlatformId;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {

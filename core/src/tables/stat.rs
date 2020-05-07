@@ -1,5 +1,5 @@
 use crate::parser::*;
-use crate::Result;
+use crate::{TitleKind, Result};
 
 pub fn parse(parser: &mut Parser) -> Result<()> {
     parser.read::<u16>("Major version")?;
@@ -25,7 +25,8 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
     parser.end_group();
 
     // TODO: parse axis
-    parser.read_array::<u16>("Axis value tables offsets", "Offset", axis_value_count as usize)?;
+    parser.read_array::<u16>("Axis value tables offsets",
+                             TitleKind::Offset, axis_value_count as usize)?;
 
     Ok(())
 }

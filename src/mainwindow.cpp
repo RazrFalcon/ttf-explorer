@@ -36,6 +36,10 @@ MainWindow::MainWindow(QWidget *parent)
 
     m_treeView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
     m_treeView->setVerticalScrollMode(QTreeView::ScrollPerPixel);
+    m_treeView->header()->setSectionsMovable(false);
+    m_treeView->header()->setSectionsClickable(false);
+    m_treeView->header()->setSortIndicatorShown(false);
+    m_treeView->setItemDelegateForColumn(Column::Title, new TitleItemDelegate(this));
 
     connect(m_hexView, &HexView::byteClicked, this, &MainWindow::onHexViewByteClicked);
 

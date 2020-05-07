@@ -1,13 +1,13 @@
 use std::ops::Range;
 
 use crate::parser::*;
-use crate::{Error, Result};
+use crate::{TitleKind, ValueType, Error, Result};
 
 #[derive(Clone, Copy, Debug)]
 struct BitmapFlags(u8);
 
 impl FromData for BitmapFlags {
-    const NAME: &'static str = "BitFlags";
+    const NAME: ValueType = ValueType::BitFlags;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
@@ -119,7 +119,7 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
             1 => {
                 // TODO: check
                 let count = info.last_glyph.0 - info.first_glyph.0 + 2;
-                parser.read_array::<Offset32>("Offsets", "Offset", count as usize)?;
+                parser.read_array::<Offset32>("Offsets", TitleKind::Offset, count as usize)?;
             }
             2 => {
                 parser.read::<u32>("Image size")?;
@@ -128,7 +128,7 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
             3 => {
                 // TODO: check
                 let count = info.last_glyph.0 - info.first_glyph.0 + 2;
-                parser.read_array::<Offset16>("Offsets", "Offset", count as usize)?;
+                parser.read_array::<Offset16>("Offsets", TitleKind::Offset, count as usize)?;
             }
             4 => {
                 let num_glyphs = parser.read::<u32>("Number of glyphs")?;
@@ -141,7 +141,7 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
                 parser.read::<u32>("Image size")?;
                 parse_big_glyph_metrics(parser)?;
                 let num_glyphs = parser.read::<u32>("Number of glyphs")?;
-                parser.read_array::<GlyphId>("Glyphs", "Glyph ID", num_glyphs as usize)?;
+                parser.read_array::<GlyphId>("Glyphs", TitleKind::Glyph, num_glyphs as usize)?;
             }
             _ => return Err(Error::InvalidValue),
         }

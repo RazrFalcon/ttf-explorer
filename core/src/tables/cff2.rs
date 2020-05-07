@@ -1,5 +1,5 @@
 use crate::parser::*;
-use crate::{Error, Result};
+use crate::{TitleKind, Error, Result};
 use super::cff::{Dict, DictRecord, OffsetSize, parse_float};
 
 mod dict_operator {
@@ -131,7 +131,7 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
     Ok(())
 }
 
-fn parse_index<P>(name: &str, parser: &mut Parser, mut p: P) -> Result<()>
+fn parse_index<P>(name: &'static str, parser: &mut Parser, mut p: P) -> Result<()>
     where P: FnMut(usize, usize, usize, &mut Parser) -> Result<()>
 {
     parser.begin_group(name);
@@ -152,12 +152,11 @@ fn parse_index<P>(name: &str, parser: &mut Parser, mut p: P) -> Result<()>
     let mut offsets = Vec::new();
     // INDEX has one more index at the end to indicate data length, so we have to add 1 to count.
     for i in 0..count+1 {
-        let title = format!("Index {}", i);
         let offset = match offset_size {
-            OffsetSize::One => parser.read2::<u8>(title)? as usize,
-            OffsetSize::Two => parser.read2::<u16>(title)? as usize,
-            OffsetSize::Three => parser.read2::<U24>(title)?.0 as usize,
-            OffsetSize::Four => parser.read2::<u32>(title)? as usize,
+            OffsetSize::One => parser.read_index::<u8>(TitleKind::Index, i)? as usize,
+            OffsetSize::Two => parser.read_index::<u16>(TitleKind::Index, i)? as usize,
+            OffsetSize::Three => parser.read_index::<U24>(TitleKind::Index, i)?.0 as usize,
+            OffsetSize::Four => parser.read_index::<u32>(TitleKind::Index, i)? as usize,
         };
         offsets.push(offset);
     }
@@ -267,14 +266,14 @@ fn parse_dict(len: usize, parser: &mut Parser) -> Result<Dict> {
             let mut shadow = parser.to_simple();
             shadow.read::<u8>()?;
             let n = shadow.read::<u16>()?;
-            parser.read_value(3, "Number", n.to_string())?;
+            parser.read_value(3, TitleKind::Number, n.to_string())?;
 
             curr_record.operands.push(n as f32);
         } else if op1 == 29 {
             let mut shadow = parser.to_simple();
             shadow.read::<u8>()?;
             let n = shadow.read::<u32>()?;
-            parser.read_value(5, "Number", n.to_string())?;
+            parser.read_value(5, TitleKind::Number, n.to_string())?;
 
             curr_record.operands.push(n as f32);
         } else if op1 == 30 {
@@ -287,7 +286,7 @@ fn parse_dict(len: usize, parser: &mut Parser) -> Result<Dict> {
             curr_record.operands.push(n);
         } else if op1 >= 32 && op1 <= 246 {
             let n = op1 as i32 - 139;
-            parser.read_value(1, "Number", n.to_string())?;
+            parser.read_value(1, TitleKind::Number, n.to_string())?;
 
             curr_record.operands.push(n as f32);
         } else if op1 >= 247 && op1 <= 250 {
@@ -295,7 +294,7 @@ fn parse_dict(len: usize, parser: &mut Parser) -> Result<Dict> {
             let b0 = shadow.read::<u8>()?;
             let b1 = shadow.read::<u8>()?;
             let n = ((b0 as i32) - 247) * 256 + (b1 as i32) + 108;
-            parser.read_value(2, "Number", n.to_string())?;
+            parser.read_value(2, TitleKind::Number, n.to_string())?;
 
             curr_record.operands.push(n as f32);
         } else if op1 >= 251 && op1 <= 254 {
@@ -303,7 +302,7 @@ fn parse_dict(len: usize, parser: &mut Parser) -> Result<Dict> {
             let b0 = shadow.read::<u8>()?;
             let b1 = shadow.read::<u8>()?;
             let n = -((b0 as i32) - 251) * 256 - (b1 as i32) - 108;
-            parser.read_value(2, "Number", n.to_string())?;
+            parser.read_value(2, TitleKind::Number, n.to_string())?;
 
             curr_record.operands.push(n as f32);
         }
@@ -324,7 +323,7 @@ fn parse_subr(start: usize, end: usize, index: usize, parser: &mut Parser) -> Re
         return Ok(());
     }
 
-    parser.begin_group(format!("Subroutine {}", index));
+    parser.begin_group_with_index(TitleKind::Subroutine, index as u32);
 
     let global_end = parser.offset() + (end - start);
 
@@ -375,12 +374,12 @@ fn parse_subr(start: usize, end: usize, index: usize, parser: &mut Parser) -> Re
                 let b1 = parser.peek_at::<u8>(1)?;
                 let b2 = parser.peek_at::<u8>(2)?;
                 let n = ((b1 as i32) << 24 | (b2 as i32) << 16) >> 16;
-                parser.read_value(3, "Number", n.to_string())?;
+                parser.read_value(3, TitleKind::Number, n.to_string())?;
             }
             29 => { parser.read::<u8>("Call global subroutine (callgsubr)")?; }
             30 => { parser.read::<u8>("Vertical horizontal curve to (vhcurveto)")?; }
             31 => { parser.read::<u8>("Horizontal vertical curve to (hvcurveto)")?; }
-            32..=246 => parser.read_value(1, "Number", ((b0 as i32) - 139).to_string())?,
+            32..=246 => parser.read_value(1, TitleKind::Number, ((b0 as i32) - 139).to_string())?,
             247..=250 => {
                 if parser.offset() + 2 > global_end {
                     break;
@@ -388,7 +387,7 @@ fn parse_subr(start: usize, end: usize, index: usize, parser: &mut Parser) -> Re
 
                 let b1 = parser.peek_at::<u8>(1)?;
                 let n = ((b0 as i32) - 247) * 256 + (b1 as i32) + 108;
-                parser.read_value(2, "Number", n.to_string())?;
+                parser.read_value(2, TitleKind::Number, n.to_string())?;
             }
             251..=254 => {
                 if parser.offset() + 2 > global_end {
@@ -397,7 +396,7 @@ fn parse_subr(start: usize, end: usize, index: usize, parser: &mut Parser) -> Re
 
                 let b1 = parser.peek_at::<u8>(1)?;
                 let n = -((b0 as i32) - 251) * 256 - (b1 as i32) - 108;
-                parser.read_value(2, "Number", n.to_string())?;
+                parser.read_value(2, TitleKind::Number, n.to_string())?;
             }
             255 => {
                 if parser.offset() + 5 > global_end {
@@ -405,7 +404,7 @@ fn parse_subr(start: usize, end: usize, index: usize, parser: &mut Parser) -> Re
                 }
 
                 let n = parser.peek_at::<u32>(1)? as f32 / 65536.0;
-                parser.read_value(5, "Number", n.to_string())?;
+                parser.read_value(5, TitleKind::Number, n.to_string())?;
             }
         };
     }

@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use crate::parser::*;
-use crate::Result;
+use crate::{TitleKind, ValueType, Result};
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum GlyphType {
@@ -17,7 +17,7 @@ struct NegativeU8(i16);
 
 impl FromData for NegativeU8 {
     const SIZE: usize = 1;
-    const NAME: &'static str = "UInt8";
+    const NAME: ValueType = ValueType::UInt8;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
@@ -44,7 +44,7 @@ impl SimpleGlyphFlags {
 }
 
 impl FromData for SimpleGlyphFlags {
-    const NAME: &'static str = "BitFlags";
+    const NAME: ValueType = ValueType::BitFlags;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
@@ -99,7 +99,7 @@ impl CompositeGlyphFlags {
 }
 
 impl FromData for CompositeGlyphFlags {
-    const NAME: &'static str = "BitFlags";
+    const NAME: ValueType = ValueType::BitFlags;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
@@ -181,7 +181,7 @@ fn parse_simple_glyph(num_of_contours: u16, parser: &mut Parser) -> Result<()> {
     let mut last_point = 0;
     parser.begin_group("Endpoints");
     for i in 0..num_of_contours {
-        last_point = parser.read2::<u16>(format!("Endpoint {}", i))?;
+        last_point = parser.read_index::<u16>(TitleKind::Endpoint, i as u32)?;
     }
     parser.end_group();
 

@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use crate::parser::*;
-use crate::Result;
+use crate::{TitleKind, Result};
 
 // TODO: ligCaretListOffset
 
@@ -45,7 +45,7 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
         if count > 0 {
             parser.begin_group("Offsets to Attach Point tables");
             for i in 0..count {
-                let offset = parser.read2::<Offset16>(format!("Offset {}", i))?.to_usize();
+                let offset = parser.read_index::<Offset16>(TitleKind::Offset, i as u32)?.to_usize();
                 offsets.push(offset);
             }
             parser.end_group();

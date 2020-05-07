@@ -1,5 +1,5 @@
 use crate::parser::*;
-use crate::Result;
+use crate::{TitleKind, Result};
 
 pub fn parse(table_end_offset: usize, parser: &mut Parser) -> Result<()> {
     let version = parser.read::<Fixed>("Version")?;
@@ -18,15 +18,15 @@ pub fn parse(table_end_offset: usize, parser: &mut Parser) -> Result<()> {
 
     let num_glyphs = parser.read::<u16>("Number of glyphs")?;
     if num_glyphs != 0 {
-        parser.read_array::<u16>("Glyph name indexes", "Index", num_glyphs as usize)?;
+        parser.read_array::<u16>("Glyph name indexes", TitleKind::Index, num_glyphs as usize)?;
     }
 
     while parser.offset() < table_end_offset {
         parser.begin_group("");
         let len = parser.read::<u8>("Length")?;
         if len != 0 {
-            let name = parser.read_string(len as usize, "Data")?;
-            parser.end_group_with_title(name);
+            let name = parser.read_string(len as usize, "Data", None)?;
+            parser.end_group_with_title(name.to_string());
         } else {
             parser.end_group();
         }

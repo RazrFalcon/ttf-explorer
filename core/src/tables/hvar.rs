@@ -1,5 +1,5 @@
 use crate::parser::*;
-use crate::{Error, Result};
+use crate::{ValueType, Error, Result};
 
 #[derive(Clone, Copy, Debug)]
 struct Masks(u16);
@@ -10,7 +10,7 @@ impl Masks {
 }
 
 impl FromData for Masks {
-    const NAME: &'static str = "Masks";
+    const NAME: ValueType = ValueType::Masks;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {

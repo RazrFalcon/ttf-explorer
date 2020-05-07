@@ -1,11 +1,11 @@
 use crate::parser::*;
-use crate::Result;
+use crate::{ValueType, Result};
 
 #[derive(Clone, Copy, Debug)]
 struct WeightClass(u16);
 
 impl FromData for WeightClass {
-    const NAME: &'static str = "UInt16";
+    const NAME: ValueType = ValueType::UInt16;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
@@ -37,7 +37,7 @@ impl std::fmt::Display for WeightClass {
 struct WidthClass(u16);
 
 impl FromData for WidthClass {
-    const NAME: &'static str = "UInt16";
+    const NAME: ValueType = ValueType::UInt16;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
@@ -69,7 +69,7 @@ impl std::fmt::Display for WidthClass {
 struct TypeFlags(u16);
 
 impl FromData for TypeFlags {
-    const NAME: &'static str = "BitFlags";
+    const NAME: ValueType = ValueType::BitFlags;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
@@ -108,7 +108,7 @@ impl std::fmt::Display for TypeFlags {
 struct FontSelectionFlags(u16);
 
 impl FromData for FontSelectionFlags {
-    const NAME: &'static str = "BitFlags";
+    const NAME: ValueType = ValueType::BitFlags;
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
