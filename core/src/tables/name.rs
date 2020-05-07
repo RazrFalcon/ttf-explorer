@@ -499,6 +499,10 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
         let offset = parser.read::<Offset16>("String offset")?.to_usize();
         parser.end_group_with_title(format!("Record {}", name_id));
 
+        if len == 0 {
+            continue;
+        }
+
         // Parse only Unicode names.
         if  platform_id == PlatformId::Unicode ||
            (platform_id == PlatformId::Windows && encoding_id == WINDOWS_UNICODE_BMP_ENCODING_ID)
