@@ -104,23 +104,29 @@ fn parse_item_variation_data(parser: &mut Parser) -> Result<()> {
         parser.end_group();
     }
 
-    if item_count != 0 {
-        parser.begin_group("Delta-set rows");
-        for i in 0..item_count {
-            parser.begin_group(format!("Delta-set {}", i));
+    if item_count == 0 {
+        return Ok(());
+    }
 
-            for _ in 0..short_delta_count {
-                parser.read::<i16>("Delta")?;
-            }
+    if short_delta_count == 0 && region_index_count == 0 {
+        return Ok(());
+    }
 
-            for _ in 0..(region_index_count - short_delta_count) {
-                parser.read::<i8>("Delta")?;
-            }
+    parser.begin_group("Delta-set rows");
+    for i in 0..item_count {
+        parser.begin_group(format!("Delta-set {}", i));
 
-            parser.end_group();
+        for _ in 0..short_delta_count {
+            parser.read::<i16>("Delta")?;
         }
+
+        for _ in 0..(region_index_count - short_delta_count) {
+            parser.read::<i8>("Delta")?;
+        }
+
         parser.end_group();
     }
+    parser.end_group();
 
     Ok(())
 }
