@@ -270,10 +270,12 @@ fn parse_composite_glyph(parser: &mut Parser) -> Result<()> {
     let flags = parser.read::<CompositeGlyphFlags>("Flag")?;
     parser.read::<GlyphId>("Glyph ID")?;
 
-    let mut matrix = [0.0; 6];
+    let mut has_ts = false;
 
-    parser.begin_group("");
+    let mut matrix = [0.0; 6];
     if flags.args_are_xy_values() {
+        parser.begin_group("");
+        has_ts = true;
         if flags.arg_1_and_2_are_words() {
             matrix[4] = parser.read::<i16>("E")? as f32;
             matrix[5] = parser.read::<i16>("F")? as f32;
@@ -281,27 +283,52 @@ fn parse_composite_glyph(parser: &mut Parser) -> Result<()> {
             matrix[4] = parser.read::<i8>("E")? as f32;
             matrix[5] = parser.read::<i8>("F")? as f32;
         }
+    } else {
+        if flags.arg_1_and_2_are_words() {
+            parser.read::<u16>("Point 1")?;
+            parser.read::<u16>("Point 2")?;
+        } else {
+            parser.read::<u8>("Point 1")?;
+            parser.read::<u8>("Point 2")?;
+        }
     }
 
     if flags.we_have_a_two_by_two() {
+        if !has_ts {
+            parser.begin_group("");
+        }
+        has_ts = true;
+
         matrix[0] = parser.read::<F2DOT14>("A")?.to_f32();
         matrix[1] = parser.read::<F2DOT14>("B")?.to_f32();
         matrix[2] = parser.read::<F2DOT14>("C")?.to_f32();
         matrix[3] = parser.read::<F2DOT14>("D")?.to_f32();
     } else if flags.we_have_an_x_and_y_scale() {
+        if !has_ts {
+            parser.begin_group("");
+        }
+        has_ts = true;
+
         matrix[0] = parser.read::<F2DOT14>("A")?.to_f32();
         matrix[3] = parser.read::<F2DOT14>("D")?.to_f32();
     } else if flags.we_have_a_scale() {
+        if !has_ts {
+            parser.begin_group("");
+        }
+        has_ts = true;
+
         matrix[0] = parser.read::<F2DOT14>("A")?.to_f32();
         matrix[3] = matrix[0];
     }
 
-    parser.end_group_with_title(
-        format!(
-            "Matrix ({} {} {} {} {} {})",
-            matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5],
-        )
-    );
+    if has_ts {
+        parser.end_group_with_title(
+            format!(
+                "Matrix ({} {} {} {} {} {})",
+                matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5],
+            )
+        );
+    }
 
     if flags.more_components() {
         parse_composite_glyph(parser)?;
