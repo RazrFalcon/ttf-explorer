@@ -14,6 +14,7 @@ namespace Title {
     static const QString Number = QLatin1String("Number");
     static const QString Offset = QLatin1String("Offset");
     static const QString String = QLatin1String("String");
+    static const QString StringID = QLatin1String("StringID");
     static const QString Subroutine = QLatin1String("Subroutine");
     static const QString Value = QLatin1String("Value");
 }
@@ -79,8 +80,9 @@ QString TTFCore::Tree::itemTitle(const TTFCore::TreeItemId id) const
         case  9 : return Title::Number;
         case 10 : return Title::Offset;
         case 11 : return Title::String;
-        case 12 : return Title::Subroutine;
-        case 13 : return Title::Value;
+        case 12 : return Title::StringID;
+        case 13 : return Title::Subroutine;
+        case 14 : return Title::Value;
         default: Q_UNREACHABLE();
     }
 }

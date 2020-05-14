@@ -161,8 +161,9 @@ pub extern "C" fn ttfcore_tree_item_title_type(tree: *const ttfcore_tree, id: us
             TitleKind::Number           => 9,
             TitleKind::Offset           => 10,
             TitleKind::String           => 11,
-            TitleKind::Subroutine       => 12,
-            TitleKind::Value            => 13,
+            TitleKind::StringId         => 12,
+            TitleKind::Subroutine       => 13,
+            TitleKind::Value            => 14,
         }
     }
 }

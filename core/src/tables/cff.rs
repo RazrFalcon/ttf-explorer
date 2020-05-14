@@ -1,3 +1,5 @@
+use std::num::NonZeroU16;
+
 use tinyvec::ArrayVec;
 
 use crate::parser::*;
@@ -18,7 +20,7 @@ mod dict_operator {
     pub const STD_VW: u8 = 11;
     pub const UNIQUE_ID: u8 = 13;
     pub const XUID: u8 = 14;
-    pub const CHARSER: u8 = 15;
+    pub const CHARSET: u8 = 15;
     pub const ENCODING: u8 = 16;
     pub const CHAR_STRINGS: u8 = 17;
     pub const PRIVATE: u8 = 18;
@@ -149,9 +151,35 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
     parse_index("Global Subr INDEX", parser, parse_subr)?;
 
     // TODO: Encodings
-    // TODO: Charsets
     // TODO: FDSelect
     // TODO: Font DICT INDEX
+
+    if let Some(record) = top_dict.records.iter().find(|r| r.op == dict_operator::CHARSET as u16) {
+        if record.operands.len() != 1 || record.operands[0] < 0.0 {
+            return Err(Error::InvalidValue);
+        }
+
+        // 'The number of glyphs is the value of the count field in the CharStrings INDEX.'
+        let mut number_of_glyphs = 0;
+        if let Some(record) = top_dict.records.iter().find(|r| r.op == dict_operator::CHAR_STRINGS as u16) {
+            if record.operands.len() != 1 || record.operands[0] < 0.0 {
+                return Err(Error::InvalidValue);
+            }
+
+            let offset = record.operands[0] as usize;
+            parser.jump_to(table_start + offset)?;
+            number_of_glyphs = parser.peek()?;
+        }
+
+        // The are no charsets when number of glyphs is zero.
+        if let Some(number_of_glyphs) = NonZeroU16::new(number_of_glyphs) {
+            let offset = record.operands[0] as usize;
+            parser.jump_to(table_start + offset)?;
+            parser.begin_group("Charsets");
+            parse_charset(number_of_glyphs, parser)?;
+            parser.end_group();
+        }
+    }
 
     if let Some(record) = top_dict.records.iter().find(|r| r.op == dict_operator::CHAR_STRINGS as u16) {
         if record.operands.len() != 1 || record.operands[0] < 0.0 {
@@ -334,7 +362,7 @@ fn parse_dict(len: usize, parser: &mut Parser) -> Result<Dict> {
                 dict_operator::STD_VW => "Std VW",
                 dict_operator::UNIQUE_ID => "Unique ID",
                 dict_operator::XUID => "XUID",
-                dict_operator::CHARSER => "charset",
+                dict_operator::CHARSET => "charset",
                 dict_operator::ENCODING => "Encoding",
                 dict_operator::CHAR_STRINGS => "CharStrings",
                 dict_operator::PRIVATE => "Private",
@@ -405,6 +433,47 @@ fn parse_dict(len: usize, parser: &mut Parser) -> Result<Dict> {
     }
 
     Ok(dict)
+}
+
+fn parse_charset(number_of_glyphs: NonZeroU16, parser: &mut Parser) -> Result<()> {
+    // -1, since `.notdef` is omitted.
+
+    let format: u8 = parser.read("Format")?;
+    match format {
+        0 => {
+            parser.read_array::<u16>("Glyph name array", TitleKind::StringId,
+                                     number_of_glyphs.get() as usize - 1)?;
+            Ok(())
+        }
+        1 => {
+            // The number of ranges is not defined, so we have to
+            // read until no glyphs are left.
+            let mut left = number_of_glyphs.get() - 1;
+            while left > 0 {
+                parser.begin_group("Range");
+                parser.read::<u16>("First glyph")?;
+                left -= parser.read::<u8>("Glyphs left")? as u16 + 1;
+                parser.end_group();
+            }
+
+            Ok(())
+        }
+        2 => {
+            // The same as format1, by uses u16 instead.
+            let mut left = number_of_glyphs.get() - 1;
+            while left > 0 {
+                parser.begin_group("Range");
+                parser.read::<u16>("First glyph")?;
+                left -= parser.read::<u16>("Glyphs left")? + 1;
+                parser.end_group();
+            }
+
+            Ok(())
+        }
+        _ => {
+            Err(Error::InvalidValue)
+        }
+    }
 }
 
 fn parse_subr(start: usize, end: usize, index: usize, parser: &mut Parser) -> Result<()> {

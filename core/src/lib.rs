@@ -29,6 +29,7 @@ pub enum TitleKind {
     Number,
     Offset,
     String,
+    StringId,
     Subroutine,
     Value,
     StaticString(&'static str),
