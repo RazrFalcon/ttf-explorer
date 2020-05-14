@@ -484,15 +484,26 @@ impl<'a> Parser<'a> {
     }
 
     #[inline]
-    pub fn read_string<S: Into<TitleKind>>(&mut self, len: usize, title: S, index: Option<u32>) -> Result<&'a str> {
+    pub fn read_string<S: Into<TitleKind>>(&mut self, len: usize, title: S, index: Option<u32>) -> Result<()> {
         let start = self.offset;
         let bytes = self.read_bytes_impl(len)?;
-        let str = std::str::from_utf8(bytes)
-            .map_err(|_| Error::Custom(format!("{:?} is not a UTF-8 string", bytes)))?;
+        let str = match std::str::from_utf8(bytes) {
+            Ok(s) => s.to_string(),
+            Err(_) => {
+                // Try decode as ASCII.
+                let mut s = String::new();
+                for b in bytes.iter() {
+                    if b.is_ascii() {
+                        s.push(*b as char);
+                    }
+                }
+                s
+            }
+        };
 
-        self.add_child(title.into(), index, str.to_string(), ValueType::String, start..self.offset);
+        self.add_child(title.into(), index, str, ValueType::String, start..self.offset);
 
-        Ok(str)
+        Ok(())
     }
 
     #[inline]

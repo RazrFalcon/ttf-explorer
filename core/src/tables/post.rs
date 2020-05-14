@@ -22,14 +22,13 @@ pub fn parse(table_end_offset: usize, parser: &mut Parser) -> Result<()> {
     }
 
     while parser.offset() < table_end_offset {
-        parser.begin_group("");
+        parser.begin_group("Name");
         let len = parser.read::<u8>("Length")?;
         if len != 0 {
-            let name = parser.read_string(len as usize, "Data", None)?;
-            parser.end_group_with_title(name.to_string());
-        } else {
-            parser.end_group();
+            parser.read_string(len as usize, TitleKind::String, None)?;
         }
+
+        parser.end_group();
     }
 
     Ok(())
