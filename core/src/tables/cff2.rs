@@ -263,14 +263,14 @@ fn parse_dict(len: usize, parser: &mut Parser) -> Result<Dict> {
         } else if op1 == 28 {
             let mut shadow = parser.to_simple();
             shadow.read::<u8>()?;
-            let n = shadow.read::<u16>()?;
+            let n = shadow.read::<i16>()?;
             parser.read_value(3, TitleKind::Number, n.to_string())?;
 
             curr_record.operands.push(n as f32);
         } else if op1 == 29 {
             let mut shadow = parser.to_simple();
             shadow.read::<u8>()?;
-            let n = shadow.read::<u32>()?;
+            let n = shadow.read::<i32>()?;
             parser.read_value(5, TitleKind::Number, n.to_string())?;
 
             curr_record.operands.push(n as f32);
