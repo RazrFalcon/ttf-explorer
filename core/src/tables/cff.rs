@@ -377,7 +377,7 @@ fn parse_dict(len: usize, parser: &mut Parser) -> Result<Dict> {
             shadow.read::<u8>()?;
             let n = parse_float(&mut shadow)?;
             let num_len = shadow.offset() ;
-            parser.read_bytes(num_len, "Float")?;
+            parser.read_value(num_len, TitleKind::Number, n.to_string())?;
 
             curr_record.operands.push(n);
         } else if op1 >= 32 && op1 <= 246 {
