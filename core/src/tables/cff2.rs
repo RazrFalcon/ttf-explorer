@@ -41,8 +41,6 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
 
     if header_size > 5 {
         parser.read_bytes(header_size - 5, "Padding")?;
-    } else if header_size < 5 {
-        return Err(Error::InvalidValue);
     }
 
     parser.begin_group("Top DICT");
@@ -53,7 +51,7 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
 
     if let Some(record) = top_dict.records.iter().find(|r| r.op == dict_operator::VSTORE as u16) {
         if record.operands.len() != 1 || record.operands[0] < 0.0 {
-            return Err(Error::InvalidValue);
+            return Err(Error::Custom("invalid vstore offset".to_string()));
         }
 
         let offset = record.operands[0] as usize;
@@ -66,7 +64,7 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
 
     if let Some(record) = top_dict.records.iter().find(|r| r.op == dict_operator::CHAR_STRINGS as u16) {
         if record.operands.len() != 1 || record.operands[0] < 0.0 {
-            return Err(Error::InvalidValue);
+            return Err(Error::Custom("invalid charstrings offset".to_string()));
         }
 
         let offset = record.operands[0] as usize;
@@ -78,7 +76,7 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
     let mut private_dict_ranges = Vec::new();
     if let Some(record) = top_dict.records.iter().find(|r| r.op == dict_operator::FD_ARRAY as u16) {
         if record.operands.len() != 1 || record.operands[0] < 0.0 {
-            return Err(Error::InvalidValue);
+            return Err(Error::Custom("invalid FD array offset".to_string()));
         }
 
         let offset = record.operands[0] as usize;
@@ -90,7 +88,7 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
 
             if let Some(record) = dict.records.iter().find(|r| r.op == dict_operator::PRIVATE as u16) {
                 if record.operands.len() != 2 || record.operands[0] < 0.0 || record.operands[1] < 0.0 {
-                    return Err(Error::InvalidValue);
+                    return Err(Error::Custom("invalid private dict operands".to_string()));
                 }
 
                 let len = record.operands[0] as usize;
@@ -113,7 +111,7 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
 
         if let Some(record) = private_dict.records.iter().find(|r| r.op == dict_operator::SUBRS as u16) {
             if record.operands.len() != 1 || record.operands[0] < 0.0 {
-                return Err(Error::InvalidValue);
+                return Err(Error::Custom("invalid subrs offset".to_string()));
             }
 
             let offset = record.operands[0] as usize;
@@ -138,7 +136,7 @@ fn parse_index<P>(name: &'static str, parser: &mut Parser, mut p: P) -> Result<(
 
     let count = parser.read::<u32>("Count")?;
     if count == std::u32::MAX {
-        return Err(Error::InvalidValue);
+        return Err(Error::Custom("index items count overflow".to_string()));
     }
 
     if count == 0 {
@@ -313,8 +311,7 @@ fn parse_dict(len: usize, parser: &mut Parser) -> Result<Dict> {
 
 fn parse_subr(start: usize, end: usize, index: usize, parser: &mut Parser) -> Result<()> {
     if start > end {
-        // throw "invalid Subroutine data";
-        return Err(Error::InvalidValue);
+        return Err(Error::Custom("invalid subroutine data".to_string()));
     }
 
     // TODO: does 1 byte subroutines are malformed?

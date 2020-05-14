@@ -94,21 +94,21 @@ pub struct NodeData {
     pub range: std::ops::Range<usize>,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Debug)]
 pub enum Error {
-    InvalidValue,
     InvalidTableVersion,
     MissingTable,
     ReadOutOfBounds,
+    Custom(String),
 }
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Error::InvalidValue => write!(f, "invalid value"),
             Error::InvalidTableVersion => write!(f, "invalid table version"),
             Error::MissingTable => write!(f, "missing table"),
             Error::ReadOutOfBounds => write!(f, "read out of bounds"),
+            Error::Custom(ref s) => write!(f, "{}", s),
         }
     }
 }
@@ -133,7 +133,7 @@ impl FromData for FontMagic {
             0x00010000 => Ok(FontMagic::TrueType),
             0x4F54544F => Ok(FontMagic::OpenType),
             0x74746366 => Ok(FontMagic::FontCollection),
-            _ => Err(Error::InvalidValue),
+            n => Err(Error::Custom(format!("{} is not a valid font magic", n))),
         }
     }
 }

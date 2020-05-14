@@ -89,7 +89,7 @@ pub fn parse_delta_set(parser: &mut Parser) -> Result<()> {
             parser.read_value(2, "Entry",
                  format!("Outer index: {}\nInner index: {}", outer_index, inner_index))?;
         } else {
-            return Err(Error::InvalidValue);
+            return Err(Error::Custom(format!("{} is not a valid entry size", entry_size)));
         }
     }
     parser.end_group();

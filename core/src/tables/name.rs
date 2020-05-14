@@ -22,7 +22,7 @@ impl FromData for PlatformId {
             2 => Ok(PlatformId::Iso),
             3 => Ok(PlatformId::Windows),
             4 => Ok(PlatformId::Custom),
-            _ => Err(Error::InvalidValue),
+            n => Err(Error::Custom(format!("{} is not a valid PlatformId", n))),
         }
     }
 }
@@ -560,7 +560,8 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
             name.push(sparser.read()?);
         }
 
-        let name = String::from_utf16(&name).map_err(|_| Error::InvalidValue)?;
+        let name = String::from_utf16(&name)
+            .map_err(|_| Error::Custom("invalid UTF-16 string".to_string()))?;
         parser.read_value(range.len(), "Record", name)?;
     }
 

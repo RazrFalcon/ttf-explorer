@@ -81,7 +81,7 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
                 "Unicode Variation Sequences"
             }
             _ => {
-                return Err(Error::InvalidValue);
+                return Err(Error::Custom(format!("{} is not a valid subtable format", format)));
             }
         };
 

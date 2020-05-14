@@ -80,7 +80,7 @@ impl FromData for OffsetSize {
             2 => Ok(OffsetSize::Two),
             3 => Ok(OffsetSize::Three),
             4 => Ok(OffsetSize::Four),
-            _ => Err(Error::InvalidValue),
+            n => Err(Error::Custom(format!("{} is not a valid OffsetSize", n))),
         }
     }
 }
@@ -123,8 +123,6 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
 
     if header_size > 4 {
         parser.read_bytes(header_size - 4, "Padding")?;
-    } else if header_size < 4 {
-        return Err(Error::InvalidValue);
     }
 
     parse_index("Name INDEX", parser, |start, end, index, parser| {
@@ -156,14 +154,14 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
 
     if let Some(record) = top_dict.records.iter().find(|r| r.op == dict_operator::CHARSET as u16) {
         if record.operands.len() != 1 || record.operands[0] < 0.0 {
-            return Err(Error::InvalidValue);
+            return Err(Error::Custom("invalid charset offset".to_string()));
         }
 
         // 'The number of glyphs is the value of the count field in the CharStrings INDEX.'
         let mut number_of_glyphs = 0;
         if let Some(record) = top_dict.records.iter().find(|r| r.op == dict_operator::CHAR_STRINGS as u16) {
             if record.operands.len() != 1 || record.operands[0] < 0.0 {
-                return Err(Error::InvalidValue);
+                return Err(Error::Custom("invalid charstrings offset".to_string()));
             }
 
             let offset = record.operands[0] as usize;
@@ -183,7 +181,7 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
 
     if let Some(record) = top_dict.records.iter().find(|r| r.op == dict_operator::CHAR_STRINGS as u16) {
         if record.operands.len() != 1 || record.operands[0] < 0.0 {
-            return Err(Error::InvalidValue);
+            return Err(Error::Custom("invalid charstrings offset".to_string()));
         }
 
         let offset = record.operands[0] as usize;
@@ -194,7 +192,7 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
     let mut local_subrs_offset = None;
     if let Some(record) = top_dict.records.iter().find(|r| r.op == dict_operator::PRIVATE as u16) {
         if record.operands.len() != 2 || record.operands[0] < 0.0 || record.operands[1] < 0.0 {
-            return Err(Error::InvalidValue);
+            return Err(Error::Custom("invalid private dict operands".to_string()));
         }
 
         let len = record.operands[0] as usize;
@@ -207,7 +205,7 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
 
         if let Some(record2) = private_dict.records.iter().find(|r| r.op == dict_operator::SUBRS as u16) {
             if record2.operands.len() != 1 || record2.operands[0] < 0.0 {
-                return Err(Error::InvalidValue);
+                return Err(Error::Custom("invalid local subrs offset".to_string()));
             }
 
             let offset = record2.operands[0] as usize;
@@ -232,7 +230,7 @@ fn parse_index<P>(name: &'static str, parser: &mut Parser, mut p: P) -> Result<(
 
     let count = parser.read::<u16>("Count")?;
     if count == std::u16::MAX {
-        return Err(Error::InvalidValue);
+        return Err(Error::Custom("index items count overflow".to_string()));
     }
 
     if count == 0 {
@@ -471,15 +469,14 @@ fn parse_charset(number_of_glyphs: NonZeroU16, parser: &mut Parser) -> Result<()
             Ok(())
         }
         _ => {
-            Err(Error::InvalidValue)
+            Err(Error::Custom(format!("{} is not a valid charset format", format)))
         }
     }
 }
 
 fn parse_subr(start: usize, end: usize, index: usize, parser: &mut Parser) -> Result<()> {
     if start > end {
-        // throw "invalid Subroutine data";
-        return Err(Error::InvalidValue);
+        return Err(Error::Custom("invalid subroutine data".to_string()));
     }
 
     // TODO: does 1 byte subroutines are malformed?
@@ -609,7 +606,7 @@ const FLOAT_STACK_LEN: u8 = 64;
 
 fn parse_float_nibble(nibble: u8, stack: &mut ArrayVec<[u8; 64]>) -> Result<()> {
     if stack.len() == FLOAT_STACK_LEN as usize {
-        return Err(Error::InvalidValue);
+        return Err(Error::Custom("invalid float".to_string()));
     }
 
     match nibble {
@@ -618,14 +615,14 @@ fn parse_float_nibble(nibble: u8, stack: &mut ArrayVec<[u8; 64]>) -> Result<()> 
         11 => stack.push(b'E'),
         12 => {
             if stack.len() + 1 == FLOAT_STACK_LEN as usize {
-                return Err(Error::InvalidValue);
+                return Err(Error::Custom("invalid float".to_string()));
             }
 
             stack.push(b'E');
             stack.push(b'-');
         }
         14 => stack.push(b'-'),
-        _ => return Err(Error::InvalidValue),
+        _ => return Err(Error::Custom("invalid float".to_string())),
     }
 
     Ok(())
@@ -652,6 +649,7 @@ pub fn parse_float(parser: &mut SimpleParser) -> Result<f32> {
         parse_float_nibble(nibble2, &mut stack)?;
     }
 
-    let float_str = std::str::from_utf8(&stack).map_err(|_| Error::InvalidValue)?;
-    float_str.parse().map_err(|_| Error::InvalidValue)
+    let float_str = std::str::from_utf8(&stack)
+        .map_err(|_| Error::Custom("invalid float".to_string()))?;
+    float_str.parse().map_err(|_| Error::Custom("invalid float".to_string()))
 }

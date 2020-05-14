@@ -40,7 +40,7 @@ impl FromData for u8 {
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
-        data.get(0).copied().ok_or(Error::InvalidValue)
+        Ok(data[0])
     }
 }
 
@@ -49,7 +49,7 @@ impl FromData for i8 {
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
-        data.get(0).copied().map(|n| n as i8).ok_or(Error::InvalidValue)
+        Ok(data[0] as i8)
     }
 }
 
@@ -58,7 +58,7 @@ impl FromData for u16 {
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
-        data.try_into().ok().map(u16::from_be_bytes).ok_or(Error::InvalidValue)
+        Ok(u16::from_be_bytes(data.try_into().unwrap()))
     }
 }
 
@@ -67,7 +67,7 @@ impl FromData for i16 {
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
-        data.try_into().ok().map(i16::from_be_bytes).ok_or(Error::InvalidValue)
+        Ok(i16::from_be_bytes(data.try_into().unwrap()))
     }
 }
 
@@ -76,7 +76,7 @@ impl FromData for u32 {
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
-        data.try_into().ok().map(u32::from_be_bytes).ok_or(Error::InvalidValue)
+        Ok(u32::from_be_bytes(data.try_into().unwrap()))
     }
 }
 
@@ -85,7 +85,7 @@ impl FromData for i32 {
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
-        data.try_into().ok().map(i32::from_be_bytes).ok_or(Error::InvalidValue)
+        Ok(i32::from_be_bytes(data.try_into().unwrap()))
     }
 }
 
@@ -100,7 +100,7 @@ impl FromData for U24 {
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
-        let data: [u8; 3] = data.try_into().map_err(|_| Error::InvalidValue)?;
+        let data: [u8; 3] = data.try_into().unwrap();
         Ok(U24(u32::from_be_bytes([0, data[0], data[1], data[2]])))
     }
 }
@@ -167,7 +167,7 @@ impl FromData for LongDateTime {
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
-        data.try_into().ok().map(u64::from_be_bytes).ok_or(Error::InvalidValue).map(LongDateTime)
+        Ok(LongDateTime(u64::from_be_bytes(data.try_into().unwrap())))
     }
 }
 
@@ -487,7 +487,8 @@ impl<'a> Parser<'a> {
     pub fn read_string<S: Into<TitleKind>>(&mut self, len: usize, title: S, index: Option<u32>) -> Result<&'a str> {
         let start = self.offset;
         let bytes = self.read_bytes_impl(len)?;
-        let str = std::str::from_utf8(bytes).map_err(|_| Error::InvalidValue)?;
+        let str = std::str::from_utf8(bytes)
+            .map_err(|_| Error::Custom(format!("{:?} is not a UTF-8 string", bytes)))?;
 
         self.add_child(title.into(), index, str.to_string(), ValueType::String, start..self.offset);
 
@@ -638,7 +639,7 @@ impl FromData for Tag {
 
     #[inline]
     fn parse(data: &[u8]) -> Result<Self> {
-        u32::parse(data).map_err(|_| Error::InvalidValue).map(Tag)
+        Ok(Tag(u32::parse(data).unwrap()))
     }
 }
 

@@ -72,7 +72,7 @@ mod ot {
             match format {
                 0 => aat::parse_format0(parser)?,
                 2 => aat::parse_format2(subtable_start, parser)?,
-                _ => return Err(Error::InvalidValue),
+                _ => return Err(Error::Custom(format!("{} is not a valid format", format))),
             }
 
             parser.end_group_with_title(format!("Table Format {}", format));
@@ -194,7 +194,7 @@ mod aat {
                 1 => parse_format1(length, parser)?,
                 2 => parse_format2(subtable_start, parser)?,
                 3 => parse_format3(subtable_start, length, parser)?,
-                _ => return Err(Error::InvalidValue),
+                _ => return Err(Error::Custom(format!("{} is not a valid format", format))),
             }
 
             parser.end_group_with_title(format!("Table Format {}", format));
@@ -345,7 +345,7 @@ mod aat {
 
                 max_ops -= state_neg - min_state;
                 if max_ops <= 0 {
-                    return Err(Error::InvalidValue);
+                    return Err(Error::Custom("invalid state machine".to_string()));
                 }
 
                 // Sweep new states.
@@ -362,7 +362,7 @@ mod aat {
 
                 max_ops -= max_state - state_pos + 1;
                 if max_ops <= 0 {
-                    return Err(Error::InvalidValue);
+                    return Err(Error::Custom("invalid state machine".to_string()));
                 }
 
                 // Sweep new states.
@@ -377,7 +377,7 @@ mod aat {
 
             max_ops -= (num_entries - entry) as i32;
             if max_ops <= 0 {
-                return Err(Error::InvalidValue);
+                return Err(Error::Custom("invalid state machine".to_string()));
             }
 
             // Sweep new entries.

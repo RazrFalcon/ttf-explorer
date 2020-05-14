@@ -143,7 +143,7 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
                 let num_glyphs = parser.read::<u32>("Number of glyphs")?;
                 parser.read_array::<GlyphId>("Glyphs", TitleKind::Glyph, num_glyphs as usize)?;
             }
-            _ => return Err(Error::InvalidValue),
+            _ => return Err(Error::Custom(format!("{} is not a valid index format", index_format))),
         }
 
         parser.end_group();
@@ -330,7 +330,7 @@ pub fn collect_indices(data: &[u8]) -> Result<Vec<CblcIndex>> {
                     locations.push(CblcIndex { image_format, range: start..end });
                 }
             }
-            _ => return Err(Error::InvalidValue),
+            _ => return Err(Error::Custom(format!("{} is not a valid index format", index_format))),
         }
     }
 

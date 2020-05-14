@@ -113,6 +113,6 @@ pub fn parse_index_format(data: &[u8]) -> Result<IndexToLocFormat> {
     match idx {
         0 => Ok(IndexToLocFormat::Short),
         1 => Ok(IndexToLocFormat::Long),
-        _ => Err(Error::InvalidValue),
+        _ => Err(Error::Custom(format!("{} is not a valid index to location format", idx))),
     }
 }
