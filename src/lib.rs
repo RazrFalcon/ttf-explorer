@@ -11,6 +11,7 @@ macro_rules! try_opt_or {
     };
 }
 
+pub mod ui;
 mod ffi;
 mod parser;
 mod tables;

@@ -15,12 +15,12 @@ You also need a C++ compiler with C++17 support.
 
 And then:
 
-```bash
-cd core
+```sh
+# On Linux (assuming you have Qt and pkg-config installed)
 cargo build --release
-cd ..
-qmake
-make
+
+# On Windows/macOS
+QT_DIR=/path/to/qt cargo build --release
 ```
 
 ## Supported tables

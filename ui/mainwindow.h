@@ -5,20 +5,23 @@
 #include <QTreeView>
 #include <QMainWindow>
 
-#include "src/hexview.h"
-#include "src/treemodel.h"
+#include "verdigris/wobjectdefs.h"
+
+#include "hexview.h"
+#include "treemodel.h"
 
 class MainWindow : public QMainWindow
 {
-    Q_OBJECT
+    W_OBJECT(MainWindow)
 
 public:
     explicit MainWindow(QWidget *parent = nullptr);
 
+    void loadFile(const QString &path);
+
 private:
     void onStart();
     void onOpenFile();
-    void loadFile(const QString &path);
     void onTreeSelectionChanged(const QItemSelection &selected, const QItemSelection &deselected);
     void onHexViewByteClicked(const uint index);
 

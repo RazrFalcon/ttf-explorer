@@ -4,8 +4,8 @@
 #include <QStyledItemDelegate>
 #include <QStaticText>
 
-#include "src/range.h"
-#include "src/ttfcorepp.h"
+#include "range.h"
+#include "ttfcorepp.h"
 
 struct ttfcore_tree;
 
