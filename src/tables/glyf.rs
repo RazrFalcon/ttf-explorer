@@ -334,7 +334,9 @@ fn parse_composite_glyph(parser: &mut Parser) -> Result<()> {
         parse_composite_glyph(parser)?;
     } else if flags.we_have_instructions() {
         let number_of_instructions = parser.read::<u16>("Number of instructions")?;
-        parser.read_bytes(number_of_instructions as usize, "Instructions")?;
+        if number_of_instructions != 0 {
+            parser.read_bytes(number_of_instructions as usize, "Instructions")?;
+        }
     }
 
     Ok(())

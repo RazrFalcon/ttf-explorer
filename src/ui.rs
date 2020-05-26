@@ -9,7 +9,7 @@ mod ffi {
 
     extern "C" {
         pub fn ttfe_ui_init() -> *mut ttfe_ui_app;
-        pub fn ttfe_ui_exec(app: *mut ttfe_ui_app, path: *const c_char);
+        pub fn ttfe_ui_exec(app: *mut ttfe_ui_app, path: *const c_char, len: u32);
     }
 }
 
@@ -21,7 +21,13 @@ impl App {
     }
 
     pub fn exec(&mut self, path: Option<&str>) {
-        let path_ptr = path.map(|path| path.as_ptr() as _).unwrap_or(std::ptr::null());
-        unsafe { ffi::ttfe_ui_exec(self.0, path_ptr) }
+        match path {
+            Some(path) => {
+                unsafe { ffi::ttfe_ui_exec(self.0, path.as_ptr() as _, path.len() as u32) }
+            }
+            None => {
+                unsafe { ffi::ttfe_ui_exec(self.0, std::ptr::null(), 0) }
+            }
+        }
     }
 }

@@ -55,7 +55,9 @@ pub extern "C" fn ttfcore_parse_data(data: *const c_char, len: i32, tree: *mut *
                 unsafe { *tree = Box::into_raw(Box::new(raw_tree)) as *mut _ };
                 true
             }
-            Err(_) => {
+            Err(e) => {
+                // TODO: show in gui
+                eprintln!("Error: {}.", e);
                 false
             }
         }

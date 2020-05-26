@@ -23,11 +23,11 @@ ttfe_ui_app* ttfe_ui_init()
     return app;
 }
 
-void ttfe_ui_exec(ttfe_ui_app *app, const char *path)
+void ttfe_ui_exec(ttfe_ui_app *app, const char *path, uint len)
 {
     app->mainwindow->show();
     if (path != nullptr) {
-        app->mainwindow->loadFile(QString::fromUtf8(path));
+        app->mainwindow->loadFile(QString::fromUtf8(path, len));
     }
 
     qApp->exec();
