@@ -80,6 +80,17 @@ pub extern "C" fn ttfcore_tree_item_child_at(tree: *const ttfcore_tree, parent_i
 }
 
 #[no_mangle]
+pub extern "C" fn ttfcore_tree_item_child_index(tree: *const ttfcore_tree, id: u32) -> u32 {
+    let id = unsafe { crate::NodeId::new_unchecked(id) };
+    let run = || -> Option<u32> {
+        let first = to_tree(tree).node(id)?.parent()?.first_child()?.id().index();
+        Some(id.index().checked_sub(first)? as u32)
+    };
+
+    try_opt_or!(run(), 0)
+}
+
+#[no_mangle]
 pub extern "C" fn ttfcore_tree_item_children_count(tree: *const ttfcore_tree, id: u32) -> u32 {
     let id = unsafe { crate::NodeId::new_unchecked(id) };
     let run = || -> Option<u32> {

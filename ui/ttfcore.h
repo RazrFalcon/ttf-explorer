@@ -15,6 +15,7 @@ void ttfcore_free_tree(ttfcore_tree *tree);
 const char *ttfcore_tree_warnings(const ttfcore_tree *tree, uintptr_t *len);
 uint32_t ttfcore_tree_item_parent(const ttfcore_tree *tree, uint32_t id);
 uint32_t ttfcore_tree_item_child_at(const ttfcore_tree *tree, uint32_t parent_id, uint32_t row);
+uint32_t ttfcore_tree_item_child_index(const ttfcore_tree *tree, uint32_t id);
 uint32_t ttfcore_tree_item_children_count(const ttfcore_tree *tree, uint32_t id);
 bool ttfcore_tree_item_has_children(const ttfcore_tree *tree, uint32_t id);
 const char *ttfcore_tree_item_title(const ttfcore_tree *tree, uint32_t id, uintptr_t *len);

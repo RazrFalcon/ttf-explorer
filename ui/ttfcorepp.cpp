@@ -150,6 +150,11 @@ std::optional<TTFCore::TreeItemId> TTFCore::Tree::childAt(const TTFCore::TreeIte
     }
 }
 
+int TTFCore::Tree::childIndex(const TTFCore::TreeItemId childId) const
+{
+    return (int)ttfcore_tree_item_child_index(d.get(), childId);
+}
+
 int TTFCore::Tree::childrenCount(const TTFCore::TreeItemId id) const
 {
     return (int)ttfcore_tree_item_children_count(d.get(), id);
