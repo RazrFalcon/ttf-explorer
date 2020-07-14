@@ -327,13 +327,13 @@ impl NumFrom<u32> for usize {
 pub struct Parser<'a> {
     data: &'a [u8],
     offset: usize,
-    tree: &'a mut ego_tree::Tree<NodeData>,
-    parent_id: ego_tree::NodeId,
+    tree: &'a mut crate::Tree,
+    parent_id: crate::NodeId,
 }
 
 impl<'a> Parser<'a> {
     #[inline]
-    pub fn new(data: &'a [u8], tree: &'a mut ego_tree::Tree<NodeData>) -> Self {
+    pub fn new(data: &'a [u8], tree: &'a mut crate::Tree) -> Self {
         let parent_id = tree.root().id();
         Parser {
             data,
@@ -344,65 +344,75 @@ impl<'a> Parser<'a> {
     }
 
     #[inline]
-    pub fn current_group_node(&self) -> ego_tree::NodeId {
+    pub fn current_group_node(&self) -> crate::NodeId {
         self.parent_id
     }
 
     pub fn begin_group<S: Into<TitleKind>>(&mut self, title: S) {
-        self.parent_id = self.tree.get_mut(self.parent_id).unwrap().append(NodeData {
+        self.parent_id = self.tree.append(self.parent_id, NodeData {
             title: title.into(),
             index: None,
             value: String::new(),
             value_type: ValueType::None,
-            range: self.offset..self.offset, // End offset will be set later in `end_group()`.
-        }).id();
+            range: self.offset as u32 .. self.offset as u32, // End offset will be set later in `end_group()`.
+        });
     }
 
     pub fn begin_group_with_index(&mut self, title: TitleKind, index: u32) {
-        self.parent_id = self.tree.get_mut(self.parent_id).unwrap().append(NodeData {
+        self.parent_id = self.tree.append(self.parent_id, NodeData {
             title,
             index: Some(index),
             value: String::new(),
             value_type: ValueType::None,
-            range: self.offset..self.offset, // End offset will be set later in `end_group()`.
-        }).id();
+            range: self.offset as u32 .. self.offset as u32, // End offset will be set later in `end_group()`.
+        });
     }
 
     pub fn begin_group_with_value<S1, S2>(&mut self, title: S1, value: S2)
         where S1: Into<TitleKind>,
               S2: Into<String>,
     {
-        self.parent_id = self.tree.get_mut(self.parent_id).unwrap().append(NodeData {
+        self.parent_id = self.tree.append(self.parent_id, NodeData {
             title: title.into(),
             index: None,
             value: value.into(),
             value_type: ValueType::None,
-            range: self.offset..self.offset, // End offset will be set later in `end_group()`.
-        }).id();
+            range: self.offset as u32 .. self.offset as u32, // End offset will be set later in `end_group()`.
+        });
     }
 
     pub fn end_group(&mut self) {
-        let mut node = self.tree.get_mut(self.parent_id).unwrap();
-        node.value().range.end = self.offset;
-        self.parent_id = node.parent().unwrap().id();
+        {
+            let mut value = self.tree.node_value_mut(self.parent_id).unwrap();
+            value.range.end = self.offset as u32;
+        }
+
+        self.parent_id = self.tree.node(self.parent_id).expect("invalid id")
+            .parent().expect("no parent").id();
     }
 
     pub fn end_group_with_title<S: Into<TitleKind>>(&mut self, title: S) {
-        let mut node = self.tree.get_mut(self.parent_id).unwrap();
-        node.value().title = title.into();
-        node.value().range.end = self.offset;
-        self.parent_id = node.parent().unwrap().id();
+        {
+            let mut value = self.tree.node_value_mut(self.parent_id).unwrap();
+            value.title = title.into();
+            value.range.end = self.offset as u32;
+        }
+
+        self.parent_id = self.tree.node(self.parent_id).unwrap().parent().unwrap().id();
     }
 
     pub fn end_group_with_title_and_value<S1, S2>(&mut self, title: S1, value: S2)
         where S1: Into<TitleKind>,
               S2: Into<String>,
     {
-        let mut node = self.tree.get_mut(self.parent_id).unwrap();
-        node.value().title = title.into();
-        node.value().value = value.into();
-        node.value().range.end = self.offset;
-        self.parent_id = node.parent().unwrap().id();
+        {
+            let mut node_value = self.tree.node_value_mut(self.parent_id).unwrap();
+            node_value.title = title.into();
+            node_value.value = value.into();
+            node_value.range.end = self.offset as u32;
+        }
+
+        self.parent_id = self.tree.node(self.parent_id).unwrap().parent().unwrap().id();
     }
 
     #[inline]
@@ -539,12 +549,12 @@ impl<'a> Parser<'a> {
         value_type: ValueType,
         range: Range<usize>,
     ) {
-        self.tree.get_mut(self.parent_id).unwrap().append(NodeData {
+        self.tree.append(self.parent_id, NodeData {
             title,
             index,
             value,
             value_type,
-            range,
+            range: range.start as u32 .. range.end as u32,
         });
     }
 

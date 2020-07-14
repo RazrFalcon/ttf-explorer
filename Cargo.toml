@@ -6,7 +6,6 @@ edition = "2018"
 license = "MIT"
 
 [dependencies]
-ego-tree = "0.6.2"
 tinyvec = "0.3.3"
 
 [build-dependencies]

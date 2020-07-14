@@ -15,6 +15,9 @@ pub mod ui;
 mod ffi;
 mod parser;
 mod tables;
+mod tree;
+
+pub use tree::{Tree, Node, NodeId};
 
 
 #[derive(Clone, Debug)]
@@ -92,7 +95,7 @@ pub struct NodeData {
     pub index: Option<u32>,
     pub value: String,
     pub value_type: ValueType,
-    pub range: std::ops::Range<usize>,
+    pub range: std::ops::Range<u32>,
 }
 
 #[derive(Clone, Debug)]
@@ -157,7 +160,7 @@ struct FontTable {
 fn parse(
     data: &[u8],
     warnings: &mut String,
-    tree: &mut ego_tree::Tree<NodeData>,
+    tree: &mut tree::Tree,
 ) -> Result<()> {
     let mut parser = Parser::new(data, tree);
     let mut tables = Vec::new();

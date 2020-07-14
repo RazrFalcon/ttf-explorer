@@ -135,10 +135,9 @@ QString TTFCore::Tree::itemValueType(const TTFCore::TreeItemId id) const
 
 Range TTFCore::Tree::itemRange(const TTFCore::TreeItemId id) const
 {
-    uintptr_t start = 0;
-    uintptr_t end = 0;
-    ttfcore_tree_item_range(d.get(), id, &start, &end);
-    return { (uint)start, (uint)end };
+    Range range;
+    ttfcore_tree_item_range(d.get(), id, &range.start, &range.end);
+    return range;
 }
 
 std::optional<TTFCore::TreeItemId> TTFCore::Tree::childAt(const TTFCore::TreeItemId parentId, const int row) const
@@ -149,11 +148,6 @@ std::optional<TTFCore::TreeItemId> TTFCore::Tree::childAt(const TTFCore::TreeIte
     } else {
         return std::nullopt;
     }
-}
-
-int TTFCore::Tree::childIndex(const TTFCore::TreeItemId childId) const
-{
-    return (int)ttfcore_tree_item_child_index(d.get(), childId);
 }
 
 int TTFCore::Tree::childrenCount(const TTFCore::TreeItemId id) const

@@ -131,7 +131,7 @@ QModelIndex TreeModel::index(int row, int column, const QModelIndex &parent) con
 
 QModelIndex TreeModel::index(const TreeItemId id) const
 {
-    return createIndex(m_tree.childIndex(id), 0, id);
+    return createIndex((id - 1) & 0x00FFFFFF, 0, id);
 }
 
 QModelIndex TreeModel::parent(const QModelIndex &index) const

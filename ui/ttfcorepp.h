@@ -26,7 +26,6 @@ public:
     Range itemRange(const TreeItemId id) const;
 
     std::optional<TreeItemId> childAt(const TreeItemId parentId, const int row) const;
-    int childIndex(const TreeItemId childId) const;
     int childrenCount(const TreeItemId id) const;
     bool hasChildren(const TreeItemId id) const;
     std::optional<TreeItemId> parentItem(const TreeItemId id) const;

@@ -5,32 +5,13 @@ use crate::{NodeData, TitleKind, ValueType};
 #[allow(non_camel_case_types)]
 #[repr(C)]
 pub struct ttfcore_tree {
-    tree: ego_tree::Tree<NodeData>,
+    tree: crate::Tree,
     warnings: String,
 }
 
 
-trait NodeIdExt {
-    fn from_usize(_: usize) -> Self;
-    fn to_usize(self) -> usize;
-}
-
-impl NodeIdExt for ego_tree::NodeId {
-    #[inline]
-    fn from_usize(id: usize) -> Self {
-        debug_assert_ne!(id, 0);
-        unsafe { std::mem::transmute(id) }
-    }
-
-    #[inline]
-    fn to_usize(self) -> usize {
-        unsafe { std::mem::transmute(self) }
-    }
-}
-
-
 #[inline]
-fn to_tree(tree: *const ttfcore_tree) -> &'static ego_tree::Tree<NodeData> {
+fn to_tree(tree: *const ttfcore_tree) -> &'static crate::Tree {
     unsafe { &(*tree).tree }
 }
 
@@ -39,13 +20,13 @@ fn to_tree(tree: *const ttfcore_tree) -> &'static ego_tree::Tree<NodeData> {
 pub extern "C" fn ttfcore_parse_data(data: *const c_char, len: i32, tree: *mut *mut ttfcore_tree) -> bool {
     let data = unsafe { std::slice::from_raw_parts(data as *const u8, len as usize) };
 
-    let mut rtree = ego_tree::Tree::with_capacity(NodeData {
+    let mut rtree = crate::Tree::new(NodeData {
         title: "root".into(),
         index: None,
         value: String::new(),
         value_type: ValueType::None,
-        range: 0..len as usize,
-    }, 0xFFFF);
+        range: 0..len as u32,
+    });
     let mut warnings = String::new();
 
     std::panic::catch_unwind(|| {
@@ -79,77 +60,67 @@ pub extern "C" fn ttfcore_tree_warnings(tree: *const ttfcore_tree, len: *mut usi
 }
 
 #[no_mangle]
-pub extern "C" fn ttfcore_tree_item_parent(tree: *const ttfcore_tree, id: usize) -> usize {
-    let id = ego_tree::NodeId::from_usize(id);
-    let run = || -> Option<usize> {
-        Some(to_tree(tree).get(id)?.parent()?.id().to_usize())
+pub extern "C" fn ttfcore_tree_item_parent(tree: *const ttfcore_tree, id: u32) -> u32 {
+    let id = unsafe { crate::NodeId::new_unchecked(id) };
+    let run = || -> Option<u32> {
+        Some(to_tree(tree).node(id)?.parent()?.id().get_raw())
     };
 
     try_opt_or!(run(), 0)
 }
 
 #[no_mangle]
-pub extern "C" fn ttfcore_tree_item_child_at(tree: *const ttfcore_tree, parent_id: usize, row: usize) -> usize {
-    let parent_id = ego_tree::NodeId::from_usize(parent_id);
-    let run = || -> Option<usize> {
-        Some(to_tree(tree).get(parent_id)?.children().nth(row)?.id().to_usize())
+pub extern "C" fn ttfcore_tree_item_child_at(tree: *const ttfcore_tree, parent_id: u32, row: u32) -> u32 {
+    let parent_id = unsafe { crate::NodeId::new_unchecked(parent_id) };
+    let run = || -> Option<u32> {
+        Some(to_tree(tree).node(parent_id)?.child(row as usize)?.id().get_raw())
     };
 
     try_opt_or!(run(), 0)
 }
 
 #[no_mangle]
-pub extern "C" fn ttfcore_tree_item_child_index(tree: *const ttfcore_tree, id: usize) -> usize {
-    let id = ego_tree::NodeId::from_usize(id);
-    let run = || -> Option<usize> {
-        to_tree(tree).get(id)?.parent()?.children().position(|n| n.id() == id)
+pub extern "C" fn ttfcore_tree_item_children_count(tree: *const ttfcore_tree, id: u32) -> u32 {
+    let id = unsafe { crate::NodeId::new_unchecked(id) };
+    let run = || -> Option<u32> {
+        Some(to_tree(tree).node(id)?.children_count() as u32)
     };
 
     try_opt_or!(run(), 0)
 }
 
 #[no_mangle]
-pub extern "C" fn ttfcore_tree_item_children_count(tree: *const ttfcore_tree, id: usize) -> usize {
-    let id = ego_tree::NodeId::from_usize(id);
-    let run = || -> Option<usize> {
-        Some(to_tree(tree).get(id)?.children().count())
-    };
-
-    try_opt_or!(run(), 0)
-}
-
-#[no_mangle]
-pub extern "C" fn ttfcore_tree_item_has_children(tree: *const ttfcore_tree, id: usize) -> bool {
-    let id = ego_tree::NodeId::from_usize(id);
+pub extern "C" fn ttfcore_tree_item_has_children(tree: *const ttfcore_tree, id: u32) -> bool {
+    let id = unsafe { crate::NodeId::new_unchecked(id) };
     let run = || -> Option<bool> {
-        Some(to_tree(tree).get(id)?.has_children())
+        Some(to_tree(tree).node(id)?.has_children())
     };
 
     try_opt_or!(run(), false)
 }
 
 #[inline]
-fn get_item_str<P>(tree: *const ttfcore_tree, id: usize, p: P, len: *mut usize) -> *const c_char
+fn get_item_str<P>(tree: *const ttfcore_tree, id: u32, p: P, len: *mut usize) -> *const c_char
     where P: FnOnce(&NodeData) -> &str
 {
     unsafe {
-        let id: ego_tree::NodeId = std::mem::transmute(id);
-        let title: &str = p(&(*tree).tree.get(id).unwrap().value());
+        let id: crate::NodeId = std::mem::transmute(id);
+        let title: &str = p(&(*tree).tree.node(id).unwrap().value());
         *len = title.len();
         title.as_ptr() as _
     }
 }
 
 #[no_mangle]
-pub extern "C" fn ttfcore_tree_item_title(tree: *const ttfcore_tree, id: usize, len: *mut usize) -> *const c_char {
+pub extern "C" fn ttfcore_tree_item_title(tree: *const ttfcore_tree, id: u32, len: *mut usize) -> *const c_char {
     get_item_str(tree, id, |d| &d.title.as_str(), len)
 }
 
 #[no_mangle]
-pub extern "C" fn ttfcore_tree_item_title_type(tree: *const ttfcore_tree, id: usize) -> u8 {
+pub extern "C" fn ttfcore_tree_item_title_type(tree: *const ttfcore_tree, id: u32) -> u8 {
     unsafe {
-        let id: ego_tree::NodeId = std::mem::transmute(id);
-        match (*tree).tree.get(id).unwrap().value().title {
+        let id: crate::NodeId = std::mem::transmute(id);
+        match (*tree).tree.node(id).unwrap().value().title {
             TitleKind::StaticString(_)  => 0,
             TitleKind::OwnedString(_)   => 0,
             TitleKind::Action           => 1,
@@ -171,31 +142,31 @@ pub extern "C" fn ttfcore_tree_item_title_type(tree: *const ttfcore_tree, id: us
 }
 
 #[no_mangle]
-pub extern "C" fn ttfcore_tree_item_index(tree: *const ttfcore_tree, id: usize) -> i32 {
+pub extern "C" fn ttfcore_tree_item_index(tree: *const ttfcore_tree, id: u32) -> i32 {
     unsafe {
-        let id: ego_tree::NodeId = std::mem::transmute(id);
-        (*tree).tree.get(id).unwrap().value().index.map(|i| i as i32).unwrap_or(-1)
+        let id: crate::NodeId = std::mem::transmute(id);
+        (*tree).tree.node(id).unwrap().value().index.map(|i| i as i32).unwrap_or(-1)
     }
 }
 
 #[no_mangle]
-pub extern "C" fn ttfcore_tree_item_value(tree: *const ttfcore_tree, id: usize, len: *mut usize) -> *const c_char {
+pub extern "C" fn ttfcore_tree_item_value(tree: *const ttfcore_tree, id: u32, len: *mut usize) -> *const c_char {
     get_item_str(tree, id, |d| &d.value, len)
 }
 
 #[no_mangle]
-pub extern "C" fn ttfcore_tree_item_value_type(tree: *const ttfcore_tree, id: usize) -> u8 {
+pub extern "C" fn ttfcore_tree_item_value_type(tree: *const ttfcore_tree, id: u32) -> u8 {
     unsafe {
-        let id: ego_tree::NodeId = std::mem::transmute(id);
-        (*tree).tree.get(id).unwrap().value().value_type as u8
+        let id: crate::NodeId = std::mem::transmute(id);
+        (*tree).tree.node(id).unwrap().value().value_type as u8
     }
 }
 
 #[no_mangle]
-pub extern "C" fn ttfcore_tree_item_range(tree: *const ttfcore_tree, id: usize, start: *mut usize, end: *mut usize) {
+pub extern "C" fn ttfcore_tree_item_range(tree: *const ttfcore_tree, id: u32, start: *mut u32, end: *mut u32) {
     unsafe {
-        let id: ego_tree::NodeId = std::mem::transmute(id);
-        let range = &(*tree).tree.get(id).unwrap().value().range.clone();
+        let id: crate::NodeId = std::mem::transmute(id);
+        let range = &(*tree).tree.node(id).unwrap().value().range.clone();
         *start = range.start;
         *end = range.end;
     }
@@ -207,16 +178,19 @@ pub extern "C" fn ttfcore_tree_collect_ranges(tree: *const ttfcore_tree, data: *
     collect_ranges(&root, data, p);
 }
 
-fn collect_ranges(parent: &ego_tree::NodeRef<NodeData>, data: *mut c_void, p: fn(*mut c_void, u32, u32)) {
-    for child in parent.children() {
+fn collect_ranges(parent: &crate::Node, data: *mut c_void, p: fn(*mut c_void, u32, u32)) {
+    let mut child_opt = parent.first_child();
+    while let Some(child) = child_opt {
         if child.has_children() {
             collect_ranges(&child, data, p);
         } else {
             p(
                 data,
-                child.value().range.start as u32,
-                child.value().range.end as u32,
+                child.value().range.start,
+                child.value().range.end,
             );
         }
+
+        child_opt = child.next_sibling();
     }
 }
