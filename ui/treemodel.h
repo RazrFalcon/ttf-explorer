@@ -60,9 +60,6 @@ public:
     TreeItemId rootId() const { return m_rootId; }
 
 private:
-    std::optional<TreeItemId> itemByByteImpl(const uint index, const TreeItemId parentId) const;
-
-private:
     const TreeItemId m_rootId = 1;
     TTFCore::Tree m_tree;
 };

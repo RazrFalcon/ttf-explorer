@@ -140,6 +140,16 @@ Range TTFCore::Tree::itemRange(const TTFCore::TreeItemId id) const
     return range;
 }
 
+std::optional<TTFCore::TreeItemId> TTFCore::Tree::itemAtByte(const uint byte) const
+{
+    const auto id = ttfcore_tree_item_at_byte(d.get(), byte);
+    if (id != 0) {
+        return id;
+    } else {
+        return std::nullopt;
+    }
+}
+
 std::optional<TTFCore::TreeItemId> TTFCore::Tree::childAt(const TTFCore::TreeItemId parentId, const int row) const
 {
     const auto id = ttfcore_tree_item_child_at(d.get(), parentId, (uintptr_t)row);

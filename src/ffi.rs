@@ -205,3 +205,26 @@ fn collect_ranges(parent: &crate::Node, data: *mut c_void, p: fn(*mut c_void, u3
         child_opt = child.next_sibling();
     }
 }
+
+#[no_mangle]
+pub extern "C" fn ttfcore_tree_item_at_byte(tree: *const ttfcore_tree, offset: u32) -> u32 {
+    let root = unsafe { &*tree }.tree.root();
+    find_at_byte(&root, offset).unwrap_or(0)
+}
+
+fn find_at_byte(parent: &crate::Node, offset: u32) -> Option<u32> {
+    let mut child_opt = parent.first_child();
+    while let Some(child) = child_opt {
+        if child.value().range.contains(&offset) {
+            return if child.has_children() {
+                find_at_byte(&child, offset)
+            } else {
+                Some(child.id().get_raw())
+            };
+        }
+
+        child_opt = child.next_sibling();
+    }
+
+    None
+}

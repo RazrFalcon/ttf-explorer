@@ -194,24 +194,5 @@ Range TreeModel::itemRange(const TreeItemId id) const
 
 std::optional<TreeItemId> TreeModel::itemByByte(const uint index) const
 {
-    return itemByByteImpl(index, m_rootId);
-}
-
-std::optional<TreeItemId> TreeModel::itemByByteImpl(const uint index, const TreeItemId parentId) const
-{
-    const auto childrenCount = m_tree.childrenCount(parentId);
-    for (int i = 0; i < childrenCount; ++i) {
-        const auto childId = m_tree.childAt(parentId, i).value();
-        const auto range = itemRange(childId);
-
-        if (range.contains(index)) {
-            if (m_tree.hasChildren(childId)) {
-                return itemByByteImpl(index, childId);
-            }
-
-            return childId;
-        }
-    }
-
-    return std::nullopt;
+    return m_tree.itemAtByte(index);
 }

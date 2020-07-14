@@ -13,7 +13,7 @@ namespace TTFCore {
 
 typedef struct ttfcore_tree ttfcore_tree;
 
-using TreeItemId = uintptr_t;
+using TreeItemId = uint32_t;
 
 class Tree {
 public:
@@ -25,6 +25,7 @@ public:
     QString itemValueType(const TreeItemId id) const;
     Range itemRange(const TreeItemId id) const;
 
+    std::optional<TreeItemId> itemAtByte(const uint byte) const;
     std::optional<TreeItemId> childAt(const TreeItemId parentId, const int row) const;
     int childIndex(const TTFCore::TreeItemId childId) const;
     int childrenCount(const TreeItemId id) const;
