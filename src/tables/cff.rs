@@ -228,11 +228,7 @@ fn parse_index<P>(name: &'static str, parser: &mut Parser, mut p: P) -> Result<(
 {
     parser.begin_group(name);
 
-    let count = parser.read::<u16>("Count")?;
-    if count == std::u16::MAX {
-        return Err(Error::Custom("index items count overflow".to_string()));
-    }
-
+    let count = parser.read::<u16>("Count")? as u32;
     if count == 0 {
         parser.end_group();
         return Ok(());
