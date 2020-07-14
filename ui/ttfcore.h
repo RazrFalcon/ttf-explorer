@@ -24,6 +24,7 @@ int ttfcore_tree_item_index(const ttfcore_tree *tree, uintptr_t id);
 const char *ttfcore_tree_item_value(const ttfcore_tree *tree, uintptr_t id, uintptr_t *len);
 uint8_t ttfcore_tree_item_value_type(const ttfcore_tree *tree, uintptr_t id);
 void ttfcore_tree_item_range(const ttfcore_tree *tree, uintptr_t id, uintptr_t *start, uintptr_t *end);
+void ttfcore_tree_collect_ranges(const ttfcore_tree *tree, void *data, void (*p)(void*, uint32_t, uint32_t));
 
 #ifdef __cplusplus
 } // extern "C"

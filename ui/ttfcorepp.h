@@ -1,7 +1,8 @@
 #pragma once
 
-#include <QString>
 #include <QScopedPointer>
+#include <QString>
+#include <QVector>
 
 #include <optional>
 #include <memory>
@@ -29,6 +30,8 @@ public:
     int childrenCount(const TreeItemId id) const;
     bool hasChildren(const TreeItemId id) const;
     std::optional<TreeItemId> parentItem(const TreeItemId id) const;
+
+    QVector<Range> collectRanges() const;
 
 private:
     Tree(ttfcore_tree *tree) : d(tree, Tree::freeTree) {}

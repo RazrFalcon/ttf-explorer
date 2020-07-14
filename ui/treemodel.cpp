@@ -169,15 +169,7 @@ int TreeModel::columnCount(const QModelIndex &) const
 
 QVector<Range> TreeModel::collectRanges() const
 {
-    QVector<Range> ranges;
-    collectRangesImpl(m_rootId, ranges);
-
-    // Make sure to sort them.
-    std::sort(std::begin(ranges), std::end(ranges), [](const auto &a, const auto &b) {
-        return a.start < b.start;
-    });
-
-    return ranges;
+    return m_tree.collectRanges();
 }
 
 std::optional<TreeItemId> TreeModel::parentItem(const TreeItemId id) const
@@ -198,20 +190,6 @@ std::optional<quint32> TreeModel::itemIndex(const TreeItemId id) const
 Range TreeModel::itemRange(const TreeItemId id) const
 {
     return m_tree.itemRange(id);
-}
-
-void TreeModel::collectRangesImpl(TreeItemId parentId, QVector<Range> &ranges) const
-{
-    const auto childrenCount = m_tree.childrenCount(parentId);
-    for (int i = 0; i < childrenCount; ++i) {
-        const auto childId = m_tree.childAt(parentId, i).value();
-
-        if (m_tree.hasChildren(childId)) {
-            collectRangesImpl(childId, ranges);
-        } else {
-            ranges.append(m_tree.itemRange(childId));
-        }
-    }
 }
 
 std::optional<TreeItemId> TreeModel::itemByByte(const uint index) const

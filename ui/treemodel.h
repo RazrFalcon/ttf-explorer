@@ -60,7 +60,6 @@ public:
     TreeItemId rootId() const { return m_rootId; }
 
 private:
-    void collectRangesImpl(TreeItemId parentId, QVector<Range> &ranges) const;
     std::optional<TreeItemId> itemByByteImpl(const uint index, const TreeItemId parentId) const;
 
 private:

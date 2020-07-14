@@ -1,4 +1,4 @@
-use std::os::raw::c_char;
+use std::os::raw::{c_char, c_void};
 
 use crate::{NodeData, TitleKind, ValueType};
 
@@ -198,5 +198,25 @@ pub extern "C" fn ttfcore_tree_item_range(tree: *const ttfcore_tree, id: usize, 
         let range = &(*tree).tree.get(id).unwrap().value().range.clone();
         *start = range.start;
         *end = range.end;
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ttfcore_tree_collect_ranges(tree: *const ttfcore_tree, data: *mut c_void, p: fn(*mut c_void, u32, u32)) {
+    let root = unsafe { &*tree }.tree.root();
+    collect_ranges(&root, data, p);
+}
+
+fn collect_ranges(parent: &ego_tree::NodeRef<NodeData>, data: *mut c_void, p: fn(*mut c_void, u32, u32)) {
+    for child in parent.children() {
+        if child.has_children() {
+            collect_ranges(&child, data, p);
+        } else {
+            p(
+                data,
+                child.value().range.start as u32,
+                child.value().range.end as u32,
+            );
+        }
     }
 }

@@ -176,6 +176,25 @@ std::optional<TTFCore::TreeItemId> TTFCore::Tree::parentItem(const TTFCore::Tree
     }
 }
 
+static void onNewRange(void *data, uint32_t start, uint32_t end)
+{
+    auto ranges = reinterpret_cast<QVector<Range>*>(data);
+    ranges->append(Range { start, end });
+}
+
+QVector<Range> TTFCore::Tree::collectRanges() const
+{
+    QVector<Range> ranges;
+    ttfcore_tree_collect_ranges(d.get(), &ranges, onNewRange);
+
+    // Make sure to sort them.
+    std::sort(std::begin(ranges), std::end(ranges), [](const auto &a, const auto &b) {
+        return a.start < b.start;
+    });
+
+    return ranges;
+}
+
 void TTFCore::Tree::freeTree(TTFCore::ttfcore_tree *tree)
 {
     ttfcore_free_tree(tree);
