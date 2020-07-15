@@ -131,13 +131,16 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
         parser.read_bytes(header_size - 4, "Padding")?;
     }
 
-    parse_index("Name INDEX", parser, |start, end, index, parser| {
+    parser.begin_group("Name INDEX");
+    parse_index(parser, |start, end, index, parser| {
         parser.read_string(end - start, TitleKind::Name, Some(index as u32))?;
         Ok(())
     })?;
+    parser.end_group();
 
     let mut top_dict = Dict::default();
-    parse_index("Top DICT INDEX", parser, |start, end, _, parser| {
+    parser.begin_group("Top DICT INDEX");
+    parse_index(parser, |start, end, _, parser| {
         // TODO: this
         // if index != 0 {
         //     throw "Top DICT INDEX should have only one dictionary";
@@ -146,16 +149,20 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
         top_dict = parse_dict(end - start, parser)?;
         Ok(())
     })?;
+    parser.end_group();
 
-    parse_index("String INDEX", parser, |start, end, index, parser| {
+    parser.begin_group("String INDEX");
+    parse_index(parser, |start, end, index, parser| {
         parser.read_string(end - start, TitleKind::String, Some(index as u32))?;
         Ok(())
     })?;
+    parser.end_group();
 
-    parse_index("Global Subr INDEX", parser, parse_subr)?;
+    parser.begin_group("Global Subr INDEX");
+    parse_index(parser, parse_subr)?;
+    parser.end_group();
 
     // TODO: Encodings
-    // TODO: Font DICT INDEX
 
     // 'The number of glyphs is the value of the count field in the CharStrings INDEX.'
     let mut number_of_glyphs = 0;
@@ -205,7 +212,9 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
 
         let offset = operands[0] as usize;
         parser.jump_to(table_start + offset)?;
-        parse_index("CharStrings INDEX", parser, parse_subr)?;
+        parser.begin_group("CharStrings INDEX");
+        parse_index(parser, parse_subr)?;
+        parser.end_group();
     }
 
     let mut local_subrs_offset = None;
@@ -236,17 +245,68 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
 
     if let Some(offset) = local_subrs_offset {
         parser.jump_to(offset)?;
-        parse_index("Local Subr INDEX", parser, parse_subr)?;
+        parser.begin_group("Local Subr INDEX");
+        parse_index(parser, parse_subr)?;
+        parser.end_group();
+    }
+
+    if let Some(operands) = top_dict.get(dict_operator::FD_ARRAY) {
+        if operands.len() != 1 || operands[0] < 0.0 {
+            return Err(Error::Custom("invalid FDArray offset".to_string()));
+        }
+
+        let mut private_dict_ranges = Vec::new();
+        let offset = operands[0] as usize;
+        parser.jump_to(table_start + offset)?;
+        parser.begin_group("FDArray");
+        parse_index(parser, |start, end, index, parser| {
+            parser.begin_group_with_index("Font DICT".into(), index as u32);
+            let font_dict = parse_dict(end - start, parser)?;
+            parser.end_group();
+
+            if let Some(operands) = font_dict.get(dict_operator::PRIVATE as u16) {
+                if operands.len() != 2 || operands[0] < 0.0 || operands[1] < 0.0 {
+                    return Err(Error::Custom("invalid private dict operands".to_string()));
+                }
+
+                let len = operands[0] as usize;
+                let private_dict_offset = table_start + operands[1] as usize;
+
+                private_dict_ranges.push(private_dict_offset..private_dict_offset+len);
+            }
+
+            Ok(())
+        })?;
+        parser.end_group();
+
+        for (i, range) in private_dict_ranges.iter().enumerate() {
+            parser.jump_to(range.start)?;
+            parser.begin_group_with_index("Private DICT".into(), i as u32);
+            let private_dict = parse_dict(range.len(), parser)?;
+            parser.end_group();
+
+            if let Some(subrs_operands) = private_dict.get(dict_operator::SUBRS as u16) {
+                if subrs_operands.len() != 1 || subrs_operands[0] < 0.0 {
+                    return Err(Error::Custom("invalid local subrs offset".to_string()));
+                }
+
+                let offset = subrs_operands[0] as usize;
+                // 'The local subroutines offset is relative to the beginning
+                // of the Private DICT data.'
+                parser.jump_to(range.start + offset)?;
+                parser.begin_group_with_index("Local Subr INDEX".into(), i as u32);
+                parse_index(parser, parse_subr)?;
+                parser.end_group();
+            }
+        }
     }
 
     Ok(())
 }
 
-fn parse_index<P>(name: &'static str, parser: &mut Parser, mut p: P) -> Result<()>
+fn parse_index<P>(parser: &mut Parser, mut p: P) -> Result<()>
     where P: FnMut(usize, usize, usize, &mut Parser) -> Result<()>
 {
-    parser.begin_group(name);
-
     let count = parser.read::<u16>("Count")? as u32;
     if count == 0 {
         parser.end_group();
@@ -289,8 +349,6 @@ fn parse_index<P>(name: &'static str, parser: &mut Parser, mut p: P) -> Result<(
             return Err(Error::ReadOutOfBounds);
         }
     }
-
-    parser.end_group();
 
     Ok(())
 }
