@@ -110,6 +110,12 @@ pub struct Dict {
     pub records: Vec<DictRecord>,
 }
 
+impl Dict {
+    pub fn get(&self, op: u16) -> Option<&[f32]> {
+        self.records.iter().find(|r| r.op == op).map(|rec| rec.operands.as_slice())
+    }
+}
+
 
 pub fn parse(parser: &mut Parser) -> Result<()> {
     let table_start = parser.offset();
@@ -149,29 +155,28 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
     parse_index("Global Subr INDEX", parser, parse_subr)?;
 
     // TODO: Encodings
-    // TODO: FDSelect
     // TODO: Font DICT INDEX
 
-    if let Some(record) = top_dict.records.iter().find(|r| r.op == dict_operator::CHARSET as u16) {
-        if record.operands.len() != 1 || record.operands[0] < 0.0 {
-            return Err(Error::Custom("invalid charset offset".to_string()));
+    // 'The number of glyphs is the value of the count field in the CharStrings INDEX.'
+    let mut number_of_glyphs = 0;
+    if let Some(cs_operands) = top_dict.get(dict_operator::CHAR_STRINGS as u16) {
+        if cs_operands.len() != 1 || cs_operands[0] < 0.0 {
+            return Err(Error::Custom("invalid charstrings offset".to_string()));
         }
 
-        // 'The number of glyphs is the value of the count field in the CharStrings INDEX.'
-        let mut number_of_glyphs = 0;
-        if let Some(record) = top_dict.records.iter().find(|r| r.op == dict_operator::CHAR_STRINGS as u16) {
-            if record.operands.len() != 1 || record.operands[0] < 0.0 {
-                return Err(Error::Custom("invalid charstrings offset".to_string()));
-            }
+        let offset = cs_operands[0] as usize;
+        parser.jump_to(table_start + offset)?;
+        number_of_glyphs = parser.peek()?;
+    }
 
-            let offset = record.operands[0] as usize;
-            parser.jump_to(table_start + offset)?;
-            number_of_glyphs = parser.peek()?;
+    if let Some(operands) = top_dict.get(dict_operator::CHARSET as u16) {
+        if operands.len() != 1 || operands[0] < 0.0 {
+            return Err(Error::Custom("invalid charset offset".to_string()));
         }
 
         // The are no charsets when number of glyphs is zero.
         if let Some(number_of_glyphs) = NonZeroU16::new(number_of_glyphs) {
-            let offset = record.operands[0] as usize;
+            let offset = operands[0] as usize;
             parser.jump_to(table_start + offset)?;
             parser.begin_group("Charsets");
             parse_charset(number_of_glyphs, parser)?;
@@ -179,39 +184,53 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
         }
     }
 
-    if let Some(record) = top_dict.records.iter().find(|r| r.op == dict_operator::CHAR_STRINGS as u16) {
-        if record.operands.len() != 1 || record.operands[0] < 0.0 {
+    if let Some(operands) = top_dict.get(dict_operator::FD_SELECT) {
+        if operands.len() != 1 || operands[0] < 0.0 {
+            return Err(Error::Custom("invalid FDSelect offset".to_string()));
+        }
+
+        if let Some(number_of_glyphs) = NonZeroU16::new(number_of_glyphs) {
+            let offset = operands[0] as usize;
+            parser.jump_to(table_start + offset)?;
+            parser.begin_group("FDSelect");
+            parse_fd_select(number_of_glyphs, parser)?;
+            parser.end_group();
+        }
+    }
+
+    if let Some(operands) = top_dict.get(dict_operator::CHAR_STRINGS as u16) {
+        if operands.len() != 1 || operands[0] < 0.0 {
             return Err(Error::Custom("invalid charstrings offset".to_string()));
         }
 
-        let offset = record.operands[0] as usize;
+        let offset = operands[0] as usize;
         parser.jump_to(table_start + offset)?;
         parse_index("CharStrings INDEX", parser, parse_subr)?;
     }
 
     let mut local_subrs_offset = None;
-    if let Some(record) = top_dict.records.iter().find(|r| r.op == dict_operator::PRIVATE as u16) {
-        if record.operands.len() != 2 || record.operands[0] < 0.0 || record.operands[1] < 0.0 {
+    if let Some(operands) = top_dict.get(dict_operator::PRIVATE as u16) {
+        if operands.len() != 2 || operands[0] < 0.0 || operands[1] < 0.0 {
             return Err(Error::Custom("invalid private dict operands".to_string()));
         }
 
-        let len = record.operands[0] as usize;
-        let dict_offset = table_start + record.operands[1] as usize;
+        let len = operands[0] as usize;
+        let private_dict_offset = table_start + operands[1] as usize;
 
-        parser.jump_to(dict_offset)?;
+        parser.jump_to(private_dict_offset)?;
         parser.begin_group("Private DICT");
         let private_dict = parse_dict(len, parser)?;
         parser.end_group();
 
-        if let Some(record2) = private_dict.records.iter().find(|r| r.op == dict_operator::SUBRS as u16) {
-            if record2.operands.len() != 1 || record2.operands[0] < 0.0 {
+        if let Some(subrs_operands) = private_dict.get(dict_operator::SUBRS as u16) {
+            if subrs_operands.len() != 1 || subrs_operands[0] < 0.0 {
                 return Err(Error::Custom("invalid local subrs offset".to_string()));
             }
 
-            let offset = record2.operands[0] as usize;
+            let offset = subrs_operands[0] as usize;
             // 'The local subroutines offset is relative to the beginning
             // of the Private DICT data.'
-            local_subrs_offset = Some(dict_offset + offset);
+            local_subrs_offset = Some(private_dict_offset + offset);
         }
     }
 
@@ -466,6 +485,33 @@ fn parse_charset(number_of_glyphs: NonZeroU16, parser: &mut Parser) -> Result<()
         }
         _ => {
             Err(Error::Custom(format!("{} is not a valid charset format", format)))
+        }
+    }
+}
+
+fn parse_fd_select(number_of_glyphs: NonZeroU16, parser: &mut Parser) -> Result<()> {
+    let format: u8 = parser.read("Format")?;
+    match format {
+        0 => {
+            parser.read_array::<u8>("FD selector array", TitleKind::Index,
+                                    number_of_glyphs.get() as usize)?;
+            Ok(())
+        }
+        3 => {
+            let num_of_ranges = parser.read::<u16>("Number of ranges")?;
+            for i in 0..num_of_ranges {
+                parser.begin_group_with_index("Range".into(), i as u32);
+                parser.read::<u16>("First glyph")?;
+                parser.read::<u8>("FD index")?;
+                parser.end_group();
+            }
+
+            parser.read::<u16>("Sentinel GID")?;
+
+            Ok(())
+        }
+        _ => {
+            Err(Error::Custom(format!("{} is not a valid FDSelect format", format)))
         }
     }
 }

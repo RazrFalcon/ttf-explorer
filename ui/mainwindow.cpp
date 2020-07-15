@@ -148,7 +148,6 @@ void MainWindow::onHexViewByteClicked(const uint index)
             QItemSelectionModel::Select | QItemSelectionModel::Rows
         );
 
-        m_treeView->expand(itemIndex);
         auto parentId = m_model->parentItem(itemId.value());
         while (parentId != m_model->rootId()) {
             m_treeView->expand(m_model->index(parentId.value()));
