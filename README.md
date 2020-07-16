@@ -21,6 +21,9 @@ qmake
 make
 ```
 
+Prebuild binaries for Windows and macOS can be found at
+[Releases](https://github.com/RazrFalcon/ttf-explorer/releases).
+
 ## Supported tables
 
 avar,
