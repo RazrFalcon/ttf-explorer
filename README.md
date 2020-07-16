@@ -16,11 +16,9 @@ You also need a C++ compiler with C++17 support.
 And then:
 
 ```sh
-# On Linux (assuming you have Qt and pkg-config installed)
 cargo build --release
-
-# On Windows/macOS
-QT_DIR=/path/to/qt cargo build --release
+qmake
+make
 ```
 
 ## Supported tables

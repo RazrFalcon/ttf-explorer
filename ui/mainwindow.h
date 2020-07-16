@@ -5,14 +5,12 @@
 #include <QTreeView>
 #include <QMainWindow>
 
-#include "verdigris/wobjectdefs.h"
-
 #include "hexview.h"
 #include "treemodel.h"
 
 class MainWindow : public QMainWindow
 {
-    W_OBJECT(MainWindow)
+    Q_OBJECT
 
 public:
     explicit MainWindow(QWidget *parent = nullptr);

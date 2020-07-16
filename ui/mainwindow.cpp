@@ -6,8 +6,7 @@
 #include <QHeaderView>
 #include <QMenuBar>
 #include <QMessageBox>
-
-#include "verdigris/wobjectimpl.h"
+#include <QTimer>
 
 #include "mainwindow.h"
 
@@ -46,6 +45,8 @@ MainWindow::MainWindow(QWidget *parent)
 
     resize(1200, 600);
     setWindowTitle(QLatin1String("TTF Explorer"));
+
+    QTimer::singleShot(1, this, &MainWindow::onStart);
 }
 
 void MainWindow::onOpenFile()
@@ -95,6 +96,16 @@ void MainWindow::loadFile(const QString &path)
         setWindowTitle(QLatin1String("TTF Explorer: ") + path);
     } catch (const QString &msg) {
         QMessageBox::critical(this, QLatin1String("Error"), msg);
+    }
+}
+
+void MainWindow::onStart()
+{
+    if (qApp->arguments().size() == 2) {
+        const auto path = qApp->arguments().at(1);
+        if (QFile::exists(path)) {
+            loadFile(path);
+        }
     }
 }
 
@@ -157,5 +168,3 @@ void MainWindow::onHexViewByteClicked(const uint index)
         m_treeView->scrollTo(itemIndex);
     }
 }
-
-W_OBJECT_IMPL(MainWindow)

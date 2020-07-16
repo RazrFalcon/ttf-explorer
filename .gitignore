@@ -1,5 +1,5 @@
 *.pro.user
 .directory
 /target
-/.idea
-/core.iml
+.idea
+*.iml

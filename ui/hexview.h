@@ -3,8 +3,6 @@
 #include <QAbstractScrollArea>
 #include <QStaticText>
 
-#include "verdigris/wobjectdefs.h"
-
 #include "range.h"
 
 enum class RangePosType : quint8
@@ -26,7 +24,7 @@ struct HexViewByte
 
 class HexView : public QAbstractScrollArea
 {
-    W_OBJECT(HexView)
+    Q_OBJECT
 
     static_assert(sizeof(HexViewByte) == 2, "");
 
@@ -41,8 +39,8 @@ public:
 
     void scrollTo(const int offset);
 
-    void byteClicked(const uint pos)
-    W_SIGNAL(byteClicked, pos)
+signals:
+    void byteClicked(uint);
 
 private:
     void prepareMinWidth();

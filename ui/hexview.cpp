@@ -7,8 +7,6 @@
 
 #include <cmath>
 
-#include "verdigris/wobjectimpl.h"
-
 #include "hexview.h"
 
 static constexpr int BytesPerLine = 16;
@@ -317,5 +315,3 @@ void HexView::prepareMinWidth()
         + style()->pixelMetric(QStyle::PM_ScrollBarExtent)
     );
 }
-
-W_OBJECT_IMPL(HexView)
