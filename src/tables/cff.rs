@@ -309,7 +309,6 @@ fn parse_index<P>(parser: &mut Parser, mut p: P) -> Result<()>
 {
     let count = parser.read::<u16>("Count")? as u32;
     if count == 0 {
-        parser.end_group();
         return Ok(());
     }
 
@@ -530,7 +529,7 @@ fn parse_charset(number_of_glyphs: NonZeroU16, parser: &mut Parser) -> Result<()
             Ok(())
         }
         2 => {
-            // The same as format1, by uses u16 instead.
+            // The same as format1, but uses u16 instead.
             let mut left = number_of_glyphs.get() - 1;
             while left > 0 {
                 parser.begin_group("Range");
