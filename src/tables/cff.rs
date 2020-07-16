@@ -162,8 +162,6 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
     parse_index(parser, parse_subr)?;
     parser.end_group();
 
-    // TODO: Encodings
-
     // 'The number of glyphs is the value of the count field in the CharStrings INDEX.'
     let mut number_of_glyphs = 0;
     if let Some(cs_operands) = top_dict.get(dict_operator::CHAR_STRINGS as u16) {
@@ -176,18 +174,33 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
         number_of_glyphs = parser.peek()?;
     }
 
+    if let Some(operands) = top_dict.get(dict_operator::ENCODING as u16) {
+        if operands.len() != 1 || operands[0] < 0.0 {
+            return Err(Error::Custom("invalid encoding offset".to_string()));
+        }
+
+        let offset = operands[0] as usize;
+        parser.jump_to(table_start + offset)?;
+        parser.begin_group("Encoding");
+        parse_encoding(parser)?;
+        parser.end_group();
+    }
+
     if let Some(operands) = top_dict.get(dict_operator::CHARSET as u16) {
         if operands.len() != 1 || operands[0] < 0.0 {
             return Err(Error::Custom("invalid charset offset".to_string()));
         }
 
-        // The are no charsets when number of glyphs is zero.
-        if let Some(number_of_glyphs) = NonZeroU16::new(number_of_glyphs) {
-            let offset = operands[0] as usize;
-            parser.jump_to(table_start + offset)?;
-            parser.begin_group("Charsets");
-            parse_charset(number_of_glyphs, parser)?;
-            parser.end_group();
+        let offset = operands[0] as usize;
+        // `offset` < 3 indicates a predefined charset
+        if offset > 2 {
+            // The are no charsets when number of glyphs is zero.
+            if let Some(number_of_glyphs) = NonZeroU16::new(number_of_glyphs) {
+                parser.jump_to(table_start + offset)?;
+                parser.begin_group("Charsets");
+                parse_charset(number_of_glyphs, parser)?;
+                parser.end_group();
+            }
         }
     }
 
@@ -503,6 +516,70 @@ fn parse_dict(len: usize, parser: &mut Parser) -> Result<Dict> {
     }
 
     Ok(dict)
+}
+
+
+#[derive(Clone, Copy, Debug)]
+struct EncodingFormat(u8);
+
+impl EncodingFormat {
+    #[inline] fn has_supplemental(self) -> bool { self.0 & 0x80 != 0 }
+    #[inline] fn format(self) -> u8 { self.0 & 0x7F }
+}
+
+impl FromData for EncodingFormat {
+    const NAME: ValueType = ValueType::UInt8;
+
+    #[inline]
+    fn parse(data: &[u8]) -> Result<Self> {
+        u8::parse(data).map(EncodingFormat)
+    }
+}
+
+impl std::fmt::Display for EncodingFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.has_supplemental() {
+            write!(f, "{} (with supplemental)", self.format())
+        } else {
+            write!(f, "{}", self.format())
+        }
+    }
+}
+
+fn parse_encoding(parser: &mut Parser) -> Result<()> {
+    let format: EncodingFormat = parser.read("Format")?;
+    match format.format() {
+        0 => {
+            let number_of_glyphs: u8 = parser.read("Number of glyphs")?;
+            parser.read_array::<u8>("Glyphs", TitleKind::Glyph, number_of_glyphs as usize)?;
+        }
+        1 => {
+            let number_of_ranges: u8 = parser.read("Number of ranges")?;
+            for i in 0..number_of_ranges {
+                parser.begin_group_with_index("Range".into(), i as u32);
+                parser.read::<u8>("First code")?;
+                parser.read::<u8>("Codes left")?;
+                parser.end_group();
+            }
+        }
+        _ => {
+            return Err(Error::Custom(format!("{} is not a valid encoding format", format)));
+        }
+    }
+
+    if format.has_supplemental() {
+        parser.begin_group("Supplemental encoding");
+        let number_of_mappings: u8 = parser.read("Number of mappings")?;
+        for i in 0..number_of_mappings {
+            parser.begin_group_with_index("Supplement".into(), i as u32);
+            parser.read::<u8>("Code")?;
+            parser.read::<GlyphId>("Glyph")?;
+            parser.end_group();
+        }
+        parser.end_group();
+    }
+
+    Ok(())
 }
 
 fn parse_charset(number_of_glyphs: NonZeroU16, parser: &mut Parser) -> Result<()> {
