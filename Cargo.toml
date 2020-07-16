@@ -12,9 +12,5 @@ crate-type = ["staticlib"]
 [dependencies]
 tinyvec = "0.3.3"
 
-[build-dependencies]
-cc = "1.0"
-pkg-config = "0.3"
-
 [profile.release]
 lto = true
