@@ -6,7 +6,10 @@ TEMPLATE = app
 CONFIG  += c++17
 
 # Fixes ttfcore linking error on Linux.
-unix:!macx:LIBS += -ldl -fPIC
+unix:!mac:LIBS += -ldl -fPIC
+
+# required to make C++17 work
+mac:QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.14
 
 # Link core
 CONFIG(release, debug|release): LIBS += -L$$PWD/target/release -lttfexplorer
