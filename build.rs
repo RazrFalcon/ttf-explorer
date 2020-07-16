@@ -55,7 +55,7 @@ fn main() {
 
     println!("cargo:rustc-link-lib=Qt5Core");
     println!("cargo:rustc-link-lib=Qt5Gui");
-    println!("cargo:rustc-link-lib=QtWidgets");
+    println!("cargo:rustc-link-lib=Qt5Widgets");
 }
 
 #[cfg(target_os = "macos")]

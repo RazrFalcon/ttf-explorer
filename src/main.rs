@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"]
+
 fn main() {
     let args: Vec<_> = std::env::args().collect();
     let mut file_path = None;
