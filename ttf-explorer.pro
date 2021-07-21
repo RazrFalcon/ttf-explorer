@@ -9,7 +9,7 @@ CONFIG  += c++17
 unix:!mac:LIBS += -ldl -fPIC
 
 # required to make C++17 work
-mac:QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.14
+mac:QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.15
 
 # Link core
 CONFIG(release, debug|release): LIBS += -L$$PWD/target/release -lttfexplorer

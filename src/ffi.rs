@@ -184,12 +184,12 @@ pub extern "C" fn ttfcore_tree_item_range(tree: *const ttfcore_tree, id: u32, st
 }
 
 #[no_mangle]
-pub extern "C" fn ttfcore_tree_collect_ranges(tree: *const ttfcore_tree, data: *mut c_void, p: fn(*mut c_void, u32, u32)) {
+pub extern "C" fn ttfcore_tree_collect_ranges(tree: *const ttfcore_tree, data: *mut c_void, p: extern "C" fn(*mut c_void, u32, u32)) {
     let root = unsafe { &*tree }.tree.root();
     collect_ranges(&root, data, p);
 }
 
-fn collect_ranges(parent: &crate::Node, data: *mut c_void, p: fn(*mut c_void, u32, u32)) {
+fn collect_ranges(parent: &crate::Node, data: *mut c_void, p: extern "C" fn(*mut c_void, u32, u32)) {
     let mut child_opt = parent.first_child();
     while let Some(child) = child_opt {
         if child.has_children() {

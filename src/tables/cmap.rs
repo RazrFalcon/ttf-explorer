@@ -250,7 +250,7 @@ fn parse_format14(parser: &mut Parser) -> Result<()> {
     struct Record {
         default: bool,
         offset: usize,
-    };
+    }
 
     let mut records = Vec::new();
     parser.begin_group_with_value("VariationSelector records", count.to_string());

@@ -57,7 +57,7 @@ pub fn parse(parser: &mut Parser) -> Result<()> {
     struct TupleHeader {
         data_size: u16,
         has_private_point_numbers: bool,
-    };
+    }
     let mut headers_data = Vec::new();
 
     parser.begin_group_with_value("Tables", (offsets.len() - 1).to_string());

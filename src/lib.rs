@@ -134,6 +134,7 @@ impl FromData for FontMagic {
     fn parse(data: &[u8]) -> Result<Self> {
         match u32::parse(data)? {
             0x00010000 => Ok(FontMagic::TrueType),
+            0x74727565 => Ok(FontMagic::TrueType),
             0x4F54544F => Ok(FontMagic::OpenType),
             0x74746366 => Ok(FontMagic::FontCollection),
             n => Err(Error::Custom(format!("{} is not a valid font magic", n))),
