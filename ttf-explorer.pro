@@ -5,29 +5,52 @@ TEMPLATE = app
 
 CONFIG  += c++17
 
-# Fixes ttfcore linking error on Linux.
-unix:!mac:LIBS += -ldl -fPIC
+equals(QMAKE_CXX, clang++) {
+    QMAKE_CXXFLAGS += -Wextra -Wpedantic -Wimplicit-fallthrough -Wconversion
+}
 
-# required to make C++17 work
-mac:QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.15
-
-# Link core
-CONFIG(release, debug|release): LIBS += -L$$PWD/target/release -lttfexplorer
-else:CONFIG(debug, debug|release): LIBS += -L$$PWD/target/debug -lttfexplorer
-
-DEFINES += QT_NO_CAST_FROM_ASCII
+LIBS += -lz
 
 SOURCES += \
-    ui/hexview.cpp \
-    ui/main.cpp \
-    ui/mainwindow.cpp \
-    ui/treemodel.cpp \
-    ui/ttfcorepp.cpp
+    src/tables/avar.cpp \
+    src/tables/cbdt.cpp \
+    src/tables/cblc.cpp \
+    src/tables/cff.cpp \
+    src/tables/cff2.cpp \
+    src/tables/cmap.cpp \
+    src/tables/fvar.cpp \
+    src/tables/gdef.cpp \
+    src/hexview.cpp \
+    src/main.cpp \
+    src/mainwindow.cpp \
+    src/parser.cpp \
+    src/tables/glyf.cpp \
+    src/tables/gvar.cpp \
+    src/tables/head.cpp \
+    src/tables/hhea.cpp \
+    src/tables/hmtx.cpp \
+    src/tables/hvar.cpp \
+    src/tables/loca.cpp \
+    src/tables/maxp.cpp \
+    src/tables/mvar.cpp \
+    src/tables/name.cpp \
+    src/tables/os2.cpp \
+    src/tables/post.cpp \
+    src/tables/sbix.cpp \
+    src/tables/stat.cpp \
+    src/tables/svg.cpp \
+    src/tables/vhea.cpp \
+    src/tables/vmtx.cpp \
+    src/tables/vorg.cpp \
+    src/tables/vvar.cpp \
+    src/treemodel.cpp
 
 HEADERS += \
-    ui/app.h \
-    ui/hexview.h \
-    ui/mainwindow.h \
-    ui/range.h \
-    ui/treemodel.h \
-    ui/ttfcorepp.h
+    3rdparty/gsl-lite.hpp \
+    src/algo.h \
+    src/hexview.h \
+    src/mainwindow.h \
+    src/parser.h \
+    src/range.h \
+    src/tables/tables.h \
+    src/treemodel.h

@@ -7,22 +7,11 @@ With a final goal to define each byte in a font.
 
 ## Build & Run
 
-`ttf-explorer` depends on [Qt](https://www.qt.io/download-qt-installer)
-and [Rust](https://www.rust-lang.org/tools/install),
-so you have to install them first.
+The application is made with Qt, so you have to install it first.
+
+You can built it via Qt Creator or using terminal: `qmake && make`.
 
 You also need a C++ compiler with C++17 support.
-
-And then:
-
-```sh
-cargo build --release
-qmake
-make
-```
-
-Prebuild binaries for Windows and macOS can be found at
-[Releases](https://github.com/RazrFalcon/ttf-explorer/releases).
 
 ## Supported tables
 
@@ -31,7 +20,7 @@ bdat,
 bloc,
 CBDT,
 CBLC,
-CFF,
+CFF (mostly),
 CFF2,
 cmap,
 cvt,
@@ -46,7 +35,6 @@ head,
 hhea,
 hmtx,
 HVAR,
-kern,
 loca,
 maxp,
 MVAR,
