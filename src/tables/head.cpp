@@ -1,6 +1,5 @@
 #include <bitset>
 
-#include "src/parser.h"
 #include "tables.h"
 
 struct HeadFlags
@@ -9,9 +8,7 @@ struct HeadFlags
     static const QString Type;
 
     static HeadFlags parse(const quint8 *data)
-    {
-        return { qFromBigEndian<quint16>(data) };
-    }
+    { return { qFromBigEndian<quint16>(data) }; }
 
     static QString toString(const HeadFlags &value)
     {
@@ -43,7 +40,7 @@ struct HeadFlags
     quint16 d;
 };
 
-const QString HeadFlags::Type = "BitFlags";
+const QString HeadFlags::Type = Parser::BitflagsType;
 
 
 struct MacStyleFlags
@@ -52,9 +49,7 @@ struct MacStyleFlags
     static const QString Type;
 
     static MacStyleFlags parse(const quint8 *data)
-    {
-        return { qFromBigEndian<quint16>(data) };
-    }
+    { return { qFromBigEndian<quint16>(data) }; }
 
     static QString toString(const MacStyleFlags &value)
     {
@@ -78,7 +73,7 @@ struct MacStyleFlags
     quint16 d;
 };
 
-const QString MacStyleFlags::Type = "BitFlags";
+const QString MacStyleFlags::Type = Parser::BitflagsType;
 
 
 void parseHead(Parser &parser)
@@ -86,10 +81,10 @@ void parseHead(Parser &parser)
     const auto majorVersion = parser.read<UInt16>("Major version");
     const auto minorVersion = parser.read<UInt16>("Minor version");
     if (!(majorVersion == 1 && minorVersion == 0)) {
-        throw "invalid table version";
+        throw QString("invalid table version");
     }
 
-    parser.read<Fixed>("Font revision");
+    parser.read<F16DOT16>("Font revision");
     parser.read<UInt32>("Checksum adjustment");
     parser.read<UInt32>("Magic number");
     parser.read<HeadFlags>("Flags");
@@ -105,23 +100,4 @@ void parseHead(Parser &parser)
     parser.read<Int16>("Font direction hint");
     parser.read<Int16>("Index to location format");
     parser.read<Int16>("Glyph data format");
-}
-
-IndexToLocFormat parseHeadIndexToLocFormat(ShadowParser parser)
-{
-    const auto majorVersion = parser.read<UInt16>();
-    const auto minorVersion = parser.read<UInt16>();
-    if (!(majorVersion == 1 && minorVersion == 0)) {
-        throw "invalid table version";
-    }
-
-    parser.jumpTo(50);
-    const auto format = parser.read<Int16>();
-    if (format == 0) {
-        return IndexToLocFormat::Short;
-    } else if (format == 1) {
-        return IndexToLocFormat::Long;
-    } else {
-        throw "invalid index to location format";
-    }
 }

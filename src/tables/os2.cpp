@@ -1,6 +1,5 @@
 #include <bitset>
 
-#include "src/parser.h"
 #include "tables.h"
 
 struct WeightClass
@@ -112,7 +111,7 @@ struct TypeFlags
     quint16 d;
 };
 
-const QString TypeFlags::Type = "BitFlags";
+const QString TypeFlags::Type = Parser::BitflagsType;
 
 
 struct FontSelectionFlags
@@ -150,7 +149,7 @@ struct FontSelectionFlags
     quint16 d;
 };
 
-const QString FontSelectionFlags::Type = "BitFlags";
+const QString FontSelectionFlags::Type = Parser::BitflagsType;
 
 
 void parseOS2(Parser &parser)

@@ -1,5 +1,4 @@
 #include "src/algo.h"
-#include "src/parser.h"
 #include "tables.h"
 
 static const quint16 SHARED_POINT_NUMBERS = 0x8000;
@@ -81,25 +80,17 @@ void parseGvar(Parser &parser)
     QVector<quint32> offsets;
 
     // The total count is glyphCount+1.
-    parser.beginGroup("GlyphVariationData offsets", QString::number(glyphCount + 1));
-    for (int i = 0; i <= glyphCount; ++i) {
+    parser.readArray("Glyph Variation Data Offsets", glyphCount + 1, [&](const auto index){
         if (longFormat) {
-            offsets << parser.read<Offset32>("Offset");
+            offsets << parser.read<Offset32>(index);
         } else {
-            offsets << parser.read<Offset16>("Offset") * 2;
+            offsets << parser.read<Offset16>(index) * 2;
         }
-    }
-    parser.endGroup();
+    });
 
-    parser.beginGroup("Shared tuples", QString::number(sharedTupleCount));
-    for (int i = 0; i < sharedTupleCount; ++i) {
-        parser.beginGroup("Tuple record");
-        for (int a = 0; a < axisCount; ++a) {
-            parser.read<F2DOT14>("Coordinate");
-        }
-        parser.endGroup();
-    }
-    parser.endGroup();
+    parser.readArray("Shared Tuples", sharedTupleCount, [&](const auto index){
+        parser.readBasicArray<F2DOT14>(QString("Tuple Records %1").arg(index), axisCount);
+    });
 
     // Dedup offsets. There can be multiple records with the same offset.
     algo::dedup_vector(offsets);
@@ -112,15 +103,12 @@ void parseGvar(Parser &parser)
         bool hasPrivatePointNumbers;
     };
     QVector<TupleHeader> headersData;
-
-    parser.beginGroup("Tables", QString::number(offsets.size() - 1));
     offsets.removeFirst();
-    qint32 i = 0;
-    for (const auto &offset : offsets) {
+    parser.readArray("Glyphs Variation Data", offsets.size(), [&](const auto index){
+        const auto offset = offsets[index];
         headersData.clear();
 
-        parser.beginGroup(QString("Glyph Variation Data %1").arg(i));
-        i += 1;
+        parser.beginGroup(index);
 
         const auto value = parser.read<UInt16>("Value");
         parser.read<Offset16>("Data offset");
@@ -130,8 +118,8 @@ void parseGvar(Parser &parser)
         const auto hasSharedPointNumbers = (value & SHARED_POINT_NUMBERS) != 0;
         const auto tupleVariationCount = value & COUNT_MASK;
 
-        for (int h = 0; h < tupleVariationCount; ++h) {
-            parser.beginGroup("Tuple Variation Header");
+        parser.readArray("Tuple Variation Headers", tupleVariationCount, [&](const auto index2){
+            parser.beginGroup(index2);
             const auto dataSize = parser.read<UInt16>("Size of the serialized data");
             const auto tuple_index = parser.read<UInt16>("Value");
 
@@ -142,29 +130,18 @@ void parseGvar(Parser &parser)
             headersData.append({ dataSize, hasPrivatePointNumbers });
 
             if (hasEmbeddedPeakTuple) {
-                parser.beginGroup("Peak record");
-                for (int a = 0; a < axisCount; ++a) {
-                    parser.read<F2DOT14>("Coordinate");
-                }
-                parser.endGroup();
+                parser.readBasicArray<F2DOT14>("Peak Record", axisCount);
             }
 
             if (hasIntermediateRegion) {
-                parser.beginGroup("Peak record");
-                for (int a = 0; a < axisCount; ++a) {
-                    parser.read<F2DOT14>("Coordinate");
-                }
-                for (int a = 0; a < axisCount; ++a) {
-                    parser.read<F2DOT14>("Coordinate");
-                }
-                parser.endGroup();
+                parser.readBasicArray<F2DOT14>("Peak Record", axisCount * 2);
             }
 
             parser.endGroup();
-        }
+        });
 
         if (hasSharedPointNumbers) {
-            parser.beginGroup("Shared points");
+            parser.beginGroup("Shared Points");
             unpackPoints(parser);
             parser.endGroup();
         }
@@ -173,7 +150,7 @@ void parseGvar(Parser &parser)
             const auto start = parser.offset();
 
             if (header.hasPrivatePointNumbers) {
-                parser.beginGroup("Private points");
+                parser.beginGroup("Private Points");
                 unpackPoints(parser);
                 parser.endGroup();
             }
@@ -188,12 +165,10 @@ void parseGvar(Parser &parser)
         if (parser.offset() - start < offset) {
             const auto padding = offset - (parser.offset() - start);
             if (padding > 0) {
-                parser.readBytes(padding, "Padding");
+                parser.readPadding(padding);
             }
         }
 
         parser.endGroup();
-    }
-
-    parser.endGroup();
+    });
 }

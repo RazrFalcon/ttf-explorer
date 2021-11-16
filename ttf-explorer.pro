@@ -4,6 +4,7 @@ TARGET   = ttf-explorer
 TEMPLATE = app
 
 CONFIG  += c++17
+CONFIG  += sdk_no_version_check
 
 equals(QMAKE_CXX, clang++) {
     QMAKE_CXXFLAGS += -Wextra -Wpedantic -Wimplicit-fallthrough -Wconversion
@@ -12,6 +13,10 @@ equals(QMAKE_CXX, clang++) {
 LIBS += -lz
 
 SOURCES += \
+    src/hexview.cpp \
+    src/main.cpp \
+    src/mainwindow.cpp \
+    src/parser.cpp \
     src/tables/avar.cpp \
     src/tables/cbdt.cpp \
     src/tables/cblc.cpp \
@@ -20,16 +25,13 @@ SOURCES += \
     src/tables/cmap.cpp \
     src/tables/fvar.cpp \
     src/tables/gdef.cpp \
-    src/hexview.cpp \
-    src/main.cpp \
-    src/mainwindow.cpp \
-    src/parser.cpp \
     src/tables/glyf.cpp \
     src/tables/gvar.cpp \
     src/tables/head.cpp \
     src/tables/hhea.cpp \
     src/tables/hmtx.cpp \
     src/tables/hvar.cpp \
+    src/tables/kern.cpp \
     src/tables/loca.cpp \
     src/tables/maxp.cpp \
     src/tables/mvar.cpp \
@@ -43,14 +45,20 @@ SOURCES += \
     src/tables/vmtx.cpp \
     src/tables/vorg.cpp \
     src/tables/vvar.cpp \
-    src/treemodel.cpp
+    src/treemodel.cpp \
+    src/truetype.cpp \
+    src/utils.cpp
 
 HEADERS += \
-    3rdparty/gsl-lite.hpp \
     src/algo.h \
+    src/app.h \
     src/hexview.h \
     src/mainwindow.h \
     src/parser.h \
     src/range.h \
+    src/tables/cff.h \
+    src/tables/name.h \
     src/tables/tables.h \
-    src/treemodel.h
+    src/treemodel.h \
+    src/truetype.h \
+    src/utils.h

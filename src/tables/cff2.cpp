@@ -1,8 +1,8 @@
-#include <QDebug>
-
 #include "src/algo.h"
-#include "src/parser.h"
+#include "src/tables/cff.h"
 #include "tables.h"
+
+using namespace CFF;
 
 namespace DictOperator {
     static const quint8 BLUE_VALUES = 6;
@@ -30,8 +30,6 @@ namespace DictOperator {
     static const quint16 FD_SELECT = 1237;
 }
 
-using namespace CFFCommon;
-
 template<typename Predicate>
 static void parseIndex(const QString &name, Parser &parser, Predicate p)
 {
@@ -39,7 +37,7 @@ static void parseIndex(const QString &name, Parser &parser, Predicate p)
 
     const auto count = parser.read<UInt32>("Count");
     if (count == std::numeric_limits<quint16>::max()) {
-        throw "index items count overflow";
+        throw QString("index items count overflow");
     }
 
     if (count == 0) {
@@ -47,7 +45,7 @@ static void parseIndex(const QString &name, Parser &parser, Predicate p)
         return;
     }
 
-    const auto offsetSize = parser.read<CFFCommon::OffsetSize>("Offset size");
+    const auto offsetSize = parser.read<OffsetSize>("Offset size");
 
     parser.beginGroup("Indexes", QString::number(count + 1));
     QVector<quint32> offsets;
@@ -79,9 +77,9 @@ static void parseIndex(const QString &name, Parser &parser, Predicate p)
 
         const auto diff = qint64(parser.offset() - parserStart) - qint64(end - start);
         if (diff < 0) {
-            parser.readBytes(quint32(qAbs(diff)), "Padding");
+            parser.readUnsupported(quint32(qAbs(diff)));
         } else if (diff > 0) {
-            throw "parser read too much";
+            throw QString("parser read too much");
         }
     }
 
@@ -186,28 +184,28 @@ static Dict parseDict(const quint32 size, Parser &parser)
         } else if (op1 == 28) {
             auto shadow = parser.shadow();
             shadow.read<UInt8>();
-            const auto n = shadow.read<UInt16>();
-            parser.readValue(shadow.offset(), "Number", QString::number(n));
+            const int16_t n = shadow.read<Int16>();
+            parser.readValue("Number", numberToString(n), Parser::CFFNumberType, shadow.offset());
 
             currRecord.operands.append(n);
         } else if (op1 == 29) {
             auto shadow = parser.shadow();
             shadow.read<UInt8>();
-            const auto n = shadow.read<UInt32>();
-            parser.readValue(shadow.offset(), "Number", QString::number(n));
+            const int32_t n = shadow.read<Int32>();
+            parser.readValue("Number", numberToString(n), Parser::CFFNumberType, shadow.offset());
 
             currRecord.operands.append(n);
         } else if (op1 == 30) {
             auto shadow = parser.shadow();
             const auto start = shadow.offset();
             shadow.read<UInt8>();
-            const auto n = CFFCommon::parseFloat(shadow);
-            parser.readBytes(shadow.offset() - start, "Float");
+            const auto n = parseFloat(shadow);
+            parser.readValue("Number", floatToString(n), Parser::CFFNumberType, shadow.offset() - start);
 
             currRecord.operands.append(n);
         } else if (op1 >= 32 && op1 <= 246) {
-            const auto n = int(op1) - 139;
-            parser.readValue(1, "Number", QString::number(n));
+            const int32_t n = int(op1) - 139;
+            parser.readValue("Number", numberToString(n), Parser::CFFNumberType, 1);
 
             currRecord.operands.append(n);
         } else if (op1 >= 247 && op1 <= 250) {
@@ -215,7 +213,7 @@ static Dict parseDict(const quint32 size, Parser &parser)
             const auto b0 = shadow.read<UInt8>();
             const auto b1 = shadow.read<UInt8>();
             const auto n = (int(b0) - 247) * 256 + int(b1) + 108;
-            parser.readValue(shadow.offset(), "Number", QString::number(n));
+            parser.readValue("Number", numberToString(n), Parser::CFFNumberType, shadow.offset());
 
             currRecord.operands.append(n);
         } else if (op1 >= 251 && op1 <= 254) {
@@ -223,7 +221,7 @@ static Dict parseDict(const quint32 size, Parser &parser)
             const auto b0 = shadow.read<UInt8>();
             const auto b1 = shadow.read<UInt8>();
             const auto n = -(int(b0) - 251) * 256 - int(b1) - 108;
-            parser.readValue(shadow.offset(), "Number", QString::number(n));
+            parser.readValue("Number", numberToString(n), Parser::CFFNumberType, shadow.offset());
 
             currRecord.operands.append(n);
         } else {
@@ -237,7 +235,7 @@ static Dict parseDict(const quint32 size, Parser &parser)
 static void parseSubr(const quint32 start, const quint32 end, const int index, Parser &parser)
 {
     if (start > end) {
-        throw "invalid Subroutine data";
+        throw QString("invalid Subroutine data");
     }
 
     // TODO: does 1 byte subroutines are malformed?
@@ -327,7 +325,7 @@ static void parseSubr(const quint32 start, const quint32 end, const int index, P
             const auto b1 = parser.peek<UInt8>(2);
             const auto b2 = parser.peek<UInt8>(3);
             const auto n = (int(b1) << 24 | int(b2) << 16) >> 16;
-            parser.readValue(3, "Number", QString::number(n));
+            parser.readValue("Number", numberToString(n), Parser::CFFNumberType, 3);
         } else if (b0 == 29) {
             parser.read<UInt8>("Call global subroutine (callgsubr)");
         } else if (b0 == 30) {
@@ -335,7 +333,8 @@ static void parseSubr(const quint32 start, const quint32 end, const int index, P
         } else if (b0 == 31) {
             parser.read<UInt8>("Horizontal vertical curve to (hvcurveto)");
         } else if (b0 >= 32 && b0 <= 246) {
-            parser.readValue(1, "Number", QString::number(int(b0) - 139));
+            const auto n = int(b0) - 139;
+            parser.readValue("Number", numberToString(n), Parser::CFFNumberType, 1);
         } else if (b0 >= 247 && b0 <= 250) {
             if (parser.offset() + 2 > globalEnd) {
                 break;
@@ -343,7 +342,7 @@ static void parseSubr(const quint32 start, const quint32 end, const int index, P
 
             const auto b1 = parser.peek<UInt8>(2);
             const auto n = (int(b0) - 247) * 256 + int(b1) + 108;
-            parser.readValue(2, "Number", QString::number(n));
+            parser.readValue("Number", numberToString(n), Parser::CFFNumberType, 2);
         } else if (b0 >= 251 && b0 <= 254) {
             if (parser.offset() + 2 > globalEnd) {
                 break;
@@ -351,7 +350,7 @@ static void parseSubr(const quint32 start, const quint32 end, const int index, P
 
             const auto b1 = parser.peek<UInt8>(2);
             const auto n = -(int(b0) - 251) * 256 - int(b1) - 108;
-            parser.readValue(2, "Number", QString::number(n));
+            parser.readValue("Number", numberToString(n), Parser::CFFNumberType, 2);
         } else if (b0 == 255) {
             if (parser.offset() + 5 > globalEnd) {
                 break;
@@ -359,8 +358,8 @@ static void parseSubr(const quint32 start, const quint32 end, const int index, P
 
             auto shadow = parser.shadow();
             shadow.read<UInt8>(); // skip b0
-            const auto n = shadow.read<Fixed>();
-            parser.readValue(5, "Number", QString::number(double(n)));
+            const auto n = shadow.read<F16DOT16>();
+            parser.readValue("Number", floatToString(n), Parser::CFFNumberType, 5);
         }
     }
 
@@ -379,9 +378,9 @@ void parseCff2(Parser &parser)
     parser.endGroup();
 
     if (headerSize > 5) {
-        parser.readBytes(headerSize - 5, "Padding");
+        parser.readPadding(headerSize - 5);
     } else if (headerSize < 5) {
-        throw "header size is too small";
+        throw QString("header size is too small");
     }
 
     parser.beginGroup("Top DICT");
@@ -392,12 +391,12 @@ void parseCff2(Parser &parser)
 
     if (const auto operands = topDict.operands(DictOperator::VSTORE)) {
         if (operands->size() != 1 || operands->at(0) < 0) {
-            throw "invalid VStore operands";
+            throw QString("invalid VStore operands");
         }
 
         const auto offset = quint32(operands->at(0));
 
-        parser.jumpTo(tableStart + offset);
+        parser.advanceTo(tableStart + offset);
         parser.beginGroup("Variation Store");
         parser.read<UInt16>("Variation Store size");
         parseItemVariationStore(parser);
@@ -406,12 +405,12 @@ void parseCff2(Parser &parser)
 
     if (const auto operands = topDict.operands(DictOperator::CHAR_STRINGS)) {
         if (operands->size() != 1 || operands->at(0) < 0) {
-            throw "invalid CharStrings operands";
+            throw QString("invalid CharStrings operands");
         }
 
         const auto offset = quint32(operands->at(0));
 
-        parser.jumpTo(tableStart + offset);
+        parser.advanceTo(tableStart + offset);
         parseIndex("CharStrings INDEX", parser, parseSubr);
     }
 
@@ -424,12 +423,12 @@ void parseCff2(Parser &parser)
     QVector<Range> privateDictRanges;
     if (const auto operands = topDict.operands(DictOperator::FD_ARRAY)) {
         if (operands->size() != 1 || operands->at(0) < 0) {
-            throw "invalid Font DICT INDEX operands";
+            throw QString("invalid Font DICT INDEX operands");
         }
 
         const auto offset = quint32(operands->at(0));
 
-        parser.jumpTo(tableStart + offset);
+        parser.advanceTo(tableStart + offset);
         parseIndex("Font DICT INDEX", parser, [&](const auto start, const auto end, const auto index, auto &parser){
             parser.beginGroup(QString("DICT %1").arg(index));
             const auto dict = parseDict(end - start, parser);
@@ -437,7 +436,7 @@ void parseCff2(Parser &parser)
 
             if (const auto operands = dict.operands(DictOperator::PRIVATE)) {
                 if (operands->size() != 2 || operands->at(0) < 0 || operands->at(1) < 0) {
-                    throw "invalid Private DICT operands";
+                    throw QString("invalid Private DICT operands");
                 }
 
                 privateDictRanges.append(Range {
@@ -452,14 +451,14 @@ void parseCff2(Parser &parser)
 
     QVector<quint32> subrsOffsets;
     for (const auto &range : privateDictRanges) {
-        parser.jumpTo(tableStart + range.offset);
+        parser.advanceTo(tableStart + range.offset);
         parser.beginGroup("Private DICT");
         const auto privateDict = parseDict(range.size, parser);
         parser.endGroup();
 
         if (const auto operands = privateDict.operands(DictOperator::SUBRS)) {
             if (operands->size() != 1 || operands->at(0) < 0) {
-                throw "invalid Subrs operands";
+                throw QString("invalid Subrs operands");
             }
 
             const auto offset = quint32(operands->at(0));
@@ -469,8 +468,10 @@ void parseCff2(Parser &parser)
         }
     }
 
+    algo::sort_all(subrsOffsets);
+
     for (const auto &offset : subrsOffsets) {
-        parser.jumpTo(offset);
+        parser.advanceTo(offset);
         parseIndex("Local Subr INDEX", parser, parseSubr);
     }
 }

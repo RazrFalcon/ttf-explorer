@@ -1,46 +1,68 @@
+#include <QFont>
+
+#include "utils.h"
+
 #include "treemodel.h"
 
-TreeItem::TreeItem(const TreeItemData &data, TreeItem *parent)
-    : m_parentItem(parent)
-    , m_d(data)
+TreeItem::TreeItem(TreeItem *parent)
+    : m_parent(parent)
 {
 }
 
 TreeItem::~TreeItem()
 {
-    qDeleteAll(m_childItems);
+    qDeleteAll(m_children);
 }
 
-bool TreeItem::appendChild(TreeItem *item)
+TreeItem* TreeItem::child(int number)
 {
-    m_childItems.append(item);
-    return true;
+    return m_children.value(number);
 }
 
-void TreeItem::removeChild(TreeItem *child)
+int TreeItem::childCount() const
 {
-    m_childItems.removeOne(child);
+    return m_children.count();
 }
 
-void TreeItem::removeChildren()
+int TreeItem::childIndex() const
 {
-    qDeleteAll(m_childItems);
-    m_childItems.clear();
-}
-
-int TreeItem::row() const
-{
-    if (m_parentItem != nullptr) {
-        return m_parentItem->m_childItems.indexOf(const_cast<TreeItem*>(this));
+    if (m_parent) {
+        return m_parent->m_children.indexOf(const_cast<TreeItem*>(this));
     }
 
     return 0;
 }
 
+void TreeItem::reserveChildren(const qsizetype n)
+{
+    m_children.reserve(n);
+}
+
+QVariant TreeItem::data(int column) const
+{
+    switch (column) {
+        case Column::Title: return title;
+        case Column::Value: return value;
+        case Column::Type: return type;
+        case Column::Size: return size;
+        default: return QVariant();
+    }
+}
+
+void TreeItem::addChild(TreeItem *item)
+{
+    m_children.append(item);
+}
+
+TreeItem* TreeItem::parent()
+{
+    return m_parent;
+}
+
 
 TreeModel::TreeModel(QObject *parent)
     : QAbstractItemModel(parent)
-    ,  m_rootItem(new TreeItem(TreeItemData()))
+    , m_rootItem(new TreeItem(nullptr))
 {
 }
 
@@ -49,86 +71,19 @@ TreeModel::~TreeModel()
     delete m_rootItem;
 }
 
-QVariant TreeModel::data(const QModelIndex &index, int role) const
-{
-    if (!index.isValid()) {
-        return QVariant();
-    }
-
-    TreeItem *item = static_cast<TreeItem*>(index.internalPointer());
-    const TreeItemData &d = item->data();
-
-    if (role == Qt::ToolTipRole) {
-        if (index.column() == Column::Title) {
-            return d.title;
-        } else if (index.column() == Column::Value) {
-            return d.value;
-        }
-    }
-
-    if (role != Qt::DisplayRole) {
-        return QVariant();
-    }
-
-    switch (index.column()) {
-        case Column::Title : return d.title;
-        case Column::Value : return d.value;
-        case Column::Type : return d.type;
-        default: break;
-    }
-
-    return QVariant();
-}
-
-Qt::ItemFlags TreeModel::flags(const QModelIndex &index) const
-{
-    if (!index.isValid()) {
-        return Qt::NoItemFlags;
-    }
-
-    TreeItem *item = static_cast<TreeItem*>(index.internalPointer());
-    return item->flags();
-}
-
-QVariant TreeModel::headerData(int section, Qt::Orientation orientation, int role) const
-{
-    if (orientation == Qt::Horizontal && role == Qt::DisplayRole) {
-        switch (section) {
-            case Column::Title : return QLatin1String("Title");
-            case Column::Value : return QLatin1String("Value");
-            case Column::Type  : return QLatin1String("Type");
-            default: break;
-        }
-    }
-
-    return QVariant();
-}
-
 QModelIndex TreeModel::index(int row, int column, const QModelIndex &parent) const
 {
-    if (!hasIndex(row, column, parent)) {
+    if (parent.isValid() && parent.column() != 0) {
         return QModelIndex();
     }
 
-    TreeItem *parentItem;
-
-    if (!parent.isValid()) {
-        parentItem = m_rootItem;
-    } else {
-        parentItem = static_cast<TreeItem*>(parent.internalPointer());
-    }
-
-    TreeItem *childItem = parentItem->child(row);
+    const auto parentItem = itemByIndex(parent);
+    const auto childItem = parentItem->child(row);
     if (childItem) {
         return createIndex(row, column, childItem);
     } else {
         return QModelIndex();
     }
-}
-
-QModelIndex TreeModel::index(TreeItem *item) const
-{
-    return createIndex(item->row(), 0, item);
 }
 
 QModelIndex TreeModel::parent(const QModelIndex &index) const
@@ -137,107 +92,90 @@ QModelIndex TreeModel::parent(const QModelIndex &index) const
         return QModelIndex();
     }
 
-    TreeItem *childItem = static_cast<TreeItem*>(index.internalPointer());
-    TreeItem *parentItem = childItem->parent();
+    const auto childItem = itemByIndex(index);
+    const auto parentItem = childItem->parent();
 
     if (parentItem == m_rootItem) {
         return QModelIndex();
     }
 
-    return createIndex(parentItem->row(), 0, parentItem);
+    return createIndex(parentItem->childIndex(), 0, parentItem);
 }
 
 int TreeModel::rowCount(const QModelIndex &parent) const
 {
-    TreeItem *parentItem;
     if (parent.column() > 0) {
         return 0;
     }
 
+    TreeItem *parentItem = nullptr;
     if (!parent.isValid()) {
         parentItem = m_rootItem;
     } else {
-        parentItem = static_cast<TreeItem*>(parent.internalPointer());
+        parentItem = itemByIndex(parent);
     }
 
-    return parentItem->childrenCount();
+    return parentItem->childCount();
 }
 
-int TreeModel::columnCount(const QModelIndex &) const
+int TreeModel::columnCount(const QModelIndex &/* parent */) const
 {
-    return Column::LastColumn;
+    return (int)Column::LastColumn;
 }
 
-TreeItem *TreeModel::itemByIndex(const QModelIndex &index) const
+Qt::ItemFlags TreeModel::flags(const QModelIndex &/*index*/) const
+{
+    return Qt::ItemIsSelectable | Qt::ItemIsEnabled;
+}
+
+QVariant TreeModel::data(const QModelIndex &index, int role) const
 {
     if (!index.isValid()) {
-        return nullptr;
+        return QVariant();
     }
-    return static_cast<TreeItem*>(index.internalPointer());
+
+    const auto item = itemByIndex(index);
+
+    if (role == Qt::FontRole && index.column() >= Column::Value) {
+        return QVariant(QFont(Utils::monospacedFont()));
+    }
+
+    if (role == Qt::ToolTipRole && index.column() == Column::Value) {
+        return item->data(index.column());
+    }
+
+    if (role == Qt::TextAlignmentRole && index.column() == Column::Size) {
+        return Qt::AlignRight;
+    }
+
+    if (role != Qt::DisplayRole) {
+        return QVariant();
+    }
+
+    return item->data(index.column());
 }
 
-static TreeItem *itemByByteImpl(const uint index, TreeItem *parent)
+QVariant TreeModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
-    for (const auto item : parent->childrenList()) {
-        if (item->contains(index)) {
-            if (item->hasChildren()) {
-                return itemByByteImpl(index, item);
-            }
-
-            return item;
+    if (orientation == Qt::Horizontal && role == Qt::DisplayRole) {
+        switch (section) {
+            case Column::Title: return QLatin1String("Title");
+            case Column::Value: return QLatin1String("Value");
+            case Column::Type: return QLatin1String("Type");
+            case Column::Size: return QLatin1String("Size");
         }
     }
 
-    return nullptr;
+    return QVariant();
 }
 
-TreeItem *TreeModel::itemByByte(const uint index) const
+TreeItem* TreeModel::itemByIndex(const QModelIndex &index) const
 {
-    return itemByByteImpl(index, m_rootItem);
-}
-
-TreeItem *TreeModel::rootItem() const
-{
-    return m_rootItem;
-}
-
-TreeItem* TreeModel::appendChild(const TreeItemData &data, TreeItem *parent)
-{
-    if (!parent) {
-        parent = rootItem();
+    if (index.isValid()) {
+        TreeItem *item = static_cast<TreeItem*>(index.internalPointer());
+        if (item) {
+            return item;
+        }
     }
-
-    beginInsertRows(index(rowCount(), 0, QModelIndex()), rowCount(), rowCount());
-
-    auto item = new TreeItem(data, parent);
-    parent->appendChild(item);
-
-    endInsertRows();
-
-    return item;
-}
-
-void TreeModel::removeChild(TreeItem *item)
-{
-    beginRemoveRows(index(item->row(), 0, QModelIndex()), 1, 1);
-    item->parent()->removeChild(item);
-    endRemoveRows();
-}
-
-bool TreeModel::isEmpty() const
-{
-    return !rootItem()->hasChildren();
-}
-
-void TreeModel::itemEditFinished(TreeItem *item)
-{
-    emit dataChanged(index(item->row(), 0, QModelIndex()),
-                     index(item->row(), columnCount(), QModelIndex()));
-}
-
-void TreeModel::clear()
-{
-    beginRemoveRows(QModelIndex(), 0, rowCount());
-    m_rootItem->removeChildren();
-    endRemoveRows();
+    return m_rootItem;
 }

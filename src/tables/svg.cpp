@@ -5,7 +5,7 @@
 #include "tables.h"
 
 // https://stackoverflow.com/a/7351507
-QByteArray gUncompress(const gsl::span<const quint8> &data)
+static QByteArray gUncompress(const QByteArray &data)
 {
     if (data.size() <= 4) {
         qWarning("gUncompress: Input data is truncated");
@@ -40,7 +40,7 @@ QByteArray gUncompress(const gsl::span<const quint8> &data)
 
         switch (ret) {
         case Z_NEED_DICT:
-            ret = Z_DATA_ERROR;     // and fall through
+            ret = Z_DATA_ERROR; // and fall through
         [[fallthrough]];
         case Z_DATA_ERROR:
         case Z_MEM_ERROR:
@@ -64,7 +64,7 @@ void parseSvg(Parser &parser)
     const auto listOffset = parser.read<Offset32>("Offset to the SVG Document List");
     parser.read<UInt32>("Reserved");
 
-    parser.jumpTo(start + listOffset);
+    parser.advanceTo(start + listOffset);
     parser.beginGroup("SVG Document List");
     const auto count = parser.read<UInt16>("Number of records");
     QVector<Range> ranges;
@@ -86,18 +86,18 @@ void parseSvg(Parser &parser)
     algo::dedup_vector_by_key(ranges, &Range::start);
 
     for (const auto &range : ranges) {
-        parser.jumpTo(range.start);
+        parser.advanceTo(range.start);
 
         if (parser.peek<UInt16>() == 8075) {
             // Read gzip compressed SVG as is.
             auto shadow = parser.shadow();
             const auto gzipData = shadow.readBytes(range.size());
             const auto value = QString::fromUtf8(gUncompress(gzipData));
-            parser.readValue(range.size(), "SVGZ", value);
+            parser.readValue("SVGZ", value, Parser::BytesType, range.size());
         } else {
             // Otherwise read as string.
             // According to the spec, it must be in UTF-8, so we are fine.
-            parser.readString(range.size(), "SVG");
+            parser.readUtf8String("SVG", range.size());
         }
     }
 }

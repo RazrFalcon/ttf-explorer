@@ -3,35 +3,16 @@
 #include <QAbstractScrollArea>
 #include <QStaticText>
 
-#include "src/range.h"
-
-enum class RangePosType : quint8
-{
-    None,
-    Single,
-    Start,
-    Middle,
-    End,
-};
-
-
-struct HexViewByte
-{
-    uchar byte;
-    RangePosType posType;
-};
-
+#include "range.h"
 
 class HexView : public QAbstractScrollArea
 {
     Q_OBJECT
 
-    static_assert(sizeof(HexViewByte) == 2);
-
 public:
     explicit HexView(QWidget *parent = nullptr);
 
-    void setData(const QByteArray &data, const QVector<Range> &ranges);
+    void setData(const uchar *data, const quint32 dataSize, Ranges &&ranges);
     void clear();
 
     void selectRegion(const Range &region);
@@ -46,7 +27,6 @@ private:
     void prepareMinWidth();
 
     void drawView(QPainter &p) const;
-    void drawLine(QPainter &p, const quint32 lineIdx, const int y) const;
 
     int cursorAt(const QPoint &point) const;
     int cursorFromMousePos(const QPoint &mousePos) const;
@@ -61,8 +41,10 @@ protected:
 
 private:
     const QVector<QStaticText> m_hexTable;
-    QVector<HexViewByte> m_data;
-    quint32 m_totalLines = 0;
+    const uchar * m_data = nullptr;
+    quint64 m_dataSize = 0;
+    Ranges m_ranges;
+    quint64 m_totalLines = 0;
     std::optional<Range> m_selection;
 
     struct {

@@ -1,9 +1,8 @@
-#include "src/parser.h"
 #include "tables.h"
 
 void parseMaxp(Parser &parser)
 {
-    const auto version = parser.read<Fixed>("Version");
+    const auto version = parser.read<F16DOT16>("Version");
     parser.read<UInt16>("Number of glyphs");
 
     if (version == 0.3125f) { // v0.5
@@ -11,7 +10,7 @@ void parseMaxp(Parser &parser)
     }
 
     if (version != 1.0f) {
-        throw "invalid table version";
+        throw QString("invalid table version");
     }
 
     parser.read<UInt16>("Maximum points in a non-composite glyph");
@@ -27,10 +26,4 @@ void parseMaxp(Parser &parser)
     parser.read<UInt16>("Maximum byte count for glyph instructions");
     parser.read<UInt16>("Maximum number of components");
     parser.read<UInt16>("Maximum levels of recursion");
-}
-
-quint16 parseMaxpNumberOfGlyphs(ShadowParser parser)
-{
-    parser.read<Fixed>();
-    return parser.read<UInt16>();
 }

@@ -1,26 +1,26 @@
 #include "src/algo.h"
-#include "src/parser.h"
+#include "name.h"
 #include "tables.h"
 
-using namespace NameCommon;
+using namespace Name;
 
 static void parseLanguage16(const PlatformID platformID, Parser &parser)
 {
     const auto id = parser.peek<UInt16>();
-    parser.readValue(2, "Language ID", languageName(platformID, id));
+    parser.readValue<UInt16>("Language ID", languageName(platformID, id));
 }
 
 static void parseLanguage32(const PlatformID platformID, Parser &parser)
 {
     const auto id = parser.peek<UInt32>();
-    parser.readValue(4, "Language ID", languageName(platformID, quint16(id)));
+    parser.readValue<UInt32>("Language ID", languageName(platformID, quint16(id)));
 }
 
 static void parseFormat0(const PlatformID platformID, Parser &parser)
 {
     parser.read<UInt16>("Subtable size");
     parseLanguage16(platformID, parser);
-    parser.readArray<UInt8>("Glyphs", "Glyph", 256);
+    parser.readBasicArray<UInt8>("Glyphs", 256);
 }
 
 static void parseFormat2(const PlatformID platformID, Parser &parser)
@@ -30,30 +30,25 @@ static void parseFormat2(const PlatformID platformID, Parser &parser)
     parseLanguage16(platformID, parser);
 
     quint16 subHeadersCount = 0;
-    parser.beginGroup("SubHeader heys", QString::number(256));
-    for (quint32 i = 0; i < 256; ++i) {
-        const quint16 key = parser.read<UInt16>("Key " + QString::number(i));
+    parser.readArray("SubHeader Keys", 256, [&](const auto index){
+        const quint16 key = parser.read<UInt16>(index);
         subHeadersCount = qMax(subHeadersCount, quint16(key / 8));
-    }
-    parser.endGroup();
+    });
 
-    subHeadersCount += 1;
-    parser.beginGroup("SubHeader records", QString::number(subHeadersCount));
-    for (quint32 i = 0; i < subHeadersCount; ++i) {
-        parser.beginGroup(QString("SubHeader %1").arg(i));
+    parser.readArray("SubHeader Records", subHeadersCount + 1, [&](const auto index){
+        parser.beginGroup(index);
         parser.read<UInt16>("First valid low byte");
         parser.read<UInt16>("Number of valid low bytes");
         parser.read<Int16>("ID delta");
         parser.read<UInt16>("ID range offset");
         parser.endGroup();
-    }
-    parser.endGroup();
+    });
 
     // TODO: technically, we should split the tail into subarrays,
     //       but looks like ranges can overlap and ttf-explorer doesn't support this
 
     const auto tailSize = tableSize - (parser.offset() - tableStart);
-    parser.readArray<GlyphId>("Glyph index array", "Glyph", tailSize / 2);
+    parser.readBasicArray<GlyphId>("Glyph index array", tailSize / 2);
 }
 
 static void parseFormat4(const PlatformID platformID, Parser &parser)
@@ -66,14 +61,14 @@ static void parseFormat4(const PlatformID platformID, Parser &parser)
     parser.read<UInt16>("Search range");
     parser.read<UInt16>("Entry selector");
     parser.read<UInt16>("Range shift");
-    parser.readArray<UInt16>("End character codes", "Code", segCount);
+    parser.readBasicArray<UInt16>("End Character Codes", segCount);
     parser.read<UInt16>("Reserved");
-    parser.readArray<UInt16>("Start character codes", "Code", segCount);
-    parser.readArray<Int16>("Deltas", "Delta", segCount);
-    parser.readArray<UInt16>("Offsets into Glyph index array", "Offset", segCount);
+    parser.readBasicArray<UInt16>("Start Character Codes", segCount);
+    parser.readBasicArray<Int16>("Deltas", segCount);
+    parser.readBasicArray<UInt16>("Offsets into Glyph Index Array", segCount);
 
     const auto tailSize = tableSize - (parser.offset() - tableStart);
-    parser.readArray<GlyphId>("Glyph index array", "Glyph", tailSize / 2);
+    parser.readBasicArray<GlyphId>("Glyph Index Array", tailSize / 2);
 }
 
 static void parseFormat6(const PlatformID platformID, Parser &parser)
@@ -82,7 +77,7 @@ static void parseFormat6(const PlatformID platformID, Parser &parser)
     parseLanguage16(platformID, parser);
     parser.read<UInt16>("First code");
     const auto count = parser.read<UInt16>("Number of codes");
-    parser.readArray<GlyphId>("Glyph index array", "Glyph", count);
+    parser.readBasicArray<GlyphId>("Glyph Index Array", count);
 }
 
 static void parseFormat8(const PlatformID platformID, Parser &parser)
@@ -90,18 +85,16 @@ static void parseFormat8(const PlatformID platformID, Parser &parser)
     parser.read<UInt16>("Reserved");
     parser.read<UInt32>("Subtable size");
     parseLanguage32(platformID, parser);
-    parser.readBytes(8192, "Packed data");
+    parser.readBytes("Packed data", 8192);
     const auto count = parser.read<UInt32>("Number of groups");
 
-    parser.beginGroup("SequentialMapGroup records", QString::number(count));
-    for (quint32 i = 0; i < count; ++i) {
-        parser.beginGroup(QString("Record %1").arg(i));
+    parser.readArray("SequentialMapGroup Records", count, [&](const auto index){
+        parser.beginGroup(index);
         parser.read<UInt32>("First character code");
         parser.read<UInt32>("Last character code");
         parser.read<UInt32>("Starting glyph index");
         parser.endGroup();
-    }
-    parser.endGroup();
+    });
 }
 
 static void parseFormat10(const PlatformID platformID, Parser &parser)
@@ -111,7 +104,7 @@ static void parseFormat10(const PlatformID platformID, Parser &parser)
     parseLanguage32(platformID, parser);
     parser.read<UInt32>("First code");
     const auto count = parser.read<UInt32>("Number of codes");
-    parser.readArray<GlyphId>("Glyph index array", "Glyph", count);
+    parser.readBasicArray<GlyphId>("Glyph Index Array", count);
 }
 
 static void parseFormat12(const PlatformID platformID, Parser &parser)
@@ -121,15 +114,13 @@ static void parseFormat12(const PlatformID platformID, Parser &parser)
     parseLanguage32(platformID, parser);
     const auto count = parser.read<UInt32>("Number of groups");
 
-    parser.beginGroup("SequentialMapGroup records", QString::number(count));
-    for (quint32 i = 0; i < count; ++i) {
-        parser.beginGroup(QString("Record %1").arg(i));
+    parser.readArray("SequentialMapGroup Records", count, [&](const auto index){
+        parser.beginGroup(index);
         parser.read<UInt32>("First character code");
         parser.read<UInt32>("Last character code");
         parser.read<UInt32>("Starting glyph index");
         parser.endGroup();
-    }
-    parser.endGroup();
+    });
 }
 
 static void parseFormat13(const PlatformID platformID, Parser &parser)
@@ -139,15 +130,13 @@ static void parseFormat13(const PlatformID platformID, Parser &parser)
     parseLanguage32(platformID, parser);
     const auto count = parser.read<UInt32>("Number of groups");
 
-    parser.beginGroup("ConstantMapGroup records", QString::number(count));
-    for (quint32 i = 0; i < count; ++i) {
-        parser.beginGroup(QString("Record %1").arg(i));
+    parser.readArray("ConstantMapGroup Records", count, [&](const auto index){
+        parser.beginGroup(index);
         parser.read<UInt32>("First character code");
         parser.read<UInt32>("Last character code");
         parser.read<UInt32>("Glyph index");
         parser.endGroup();
-    }
-    parser.endGroup();
+    });
 }
 
 static void parseFormat14(Parser &parser)
@@ -164,9 +153,8 @@ static void parseFormat14(Parser &parser)
     };
 
     QVector<Record> records;
-    parser.beginGroup("VariationSelector records", QString::number(count));
-    for (quint32 i = 0; i < count; ++i) {
-        parser.beginGroup(QString("Record %1").arg(i));
+    parser.readArray("VariationSelector Records", count, [&](const auto index){
+        parser.beginGroup(index);
         parser.read<UInt24>("Variation selector");
         const auto defOffset = parser.read<Offset32>("Offset to Default UVS Table");
         const auto nonDefOffset = parser.read<Offset32>("Offset to Non-Default UVS Table");
@@ -179,14 +167,13 @@ static void parseFormat14(Parser &parser)
         if (nonDefOffset != 0) {
             records.append({ false, tableStart + nonDefOffset });
         }
-    }
-    parser.endGroup();
+    });
 
     algo::sort_all_by_key(records, &Record::offset);
     algo::dedup_vector_by_key(records, &Record::offset);
 
     for (const auto record : records) {
-        parser.jumpTo(record.offset);
+        parser.advanceTo(record.offset);
         if (record.isDefault) {
             parser.beginGroup("Default UVS table");
             const auto count = parser.read<UInt32>("Number of Unicode character ranges");
@@ -217,7 +204,7 @@ void parseCmap(Parser &parser)
 
     const auto version = parser.read<UInt16>("Version");
     if (version != 0) {
-        throw "invalid table version";
+        throw QString("invalid table version");
     }
 
     struct Record
@@ -226,29 +213,28 @@ void parseCmap(Parser &parser)
         PlatformID platformID;
     };
 
-    const auto numTables = parser.read<UInt16>("Number of tables");
+    const auto numberOfTables = parser.read<UInt16>("Number of tables");
     QVector<Record> records;
-    parser.beginGroup("Encoding records");
-    for (int i = 0; i < numTables; ++i) {
-        parser.beginGroup(QString("Record %1").arg(i));
+
+    parser.readArray("Encoding Records", numberOfTables, [&](const auto index){
+        parser.beginGroup(index);
         const auto platformID = parser.read<PlatformID>("Platform ID");
         {
             const auto id = parser.peek<UInt16>();
-            parser.readValue(2, "Encoding ID", encodingName(platformID, id));
+            parser.readValue<UInt16>("Encoding ID", encodingName(platformID, id));
         }
         const auto offset = parser.read<Offset32>("Offset");
         parser.endGroup();
 
         records.append({ offset, platformID });
-    }
-    parser.endGroup();
+    });
 
     algo::sort_all_by_key(records, &Record::offset);
     algo::dedup_vector_by_key(records, &Record::offset);
 
     for (const auto record : records) {
-        parser.jumpTo(tableStart + record.offset);
-        parser.beginGroup("Table");
+        parser.advanceTo(tableStart + record.offset);
+        parser.beginGroup();
         QString title;
         const auto format = parser.read<UInt16>("Format");
         switch (format) {
@@ -294,12 +280,12 @@ void parseCmap(Parser &parser)
             }
             case 14 : {
                 parseFormat14(parser);
-                title = "Unicode Variation Sequences";
+                title = "Unicode variation sequences";
                 break;
             }
             default : break;
         }
 
-        parser.endGroup(QString("Subtable %1: %2").arg(format).arg(title));
+        parser.endGroup(QString("Subtable %1").arg(format), title);
     }
 }

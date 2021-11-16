@@ -1,51 +1,46 @@
-#include "src/parser.h"
 #include "tables.h"
 
-void parseFvar(Parser &parser)
+void parseFvar(const NamesHash &names, Parser &parser)
 {
     const auto majorVersion = parser.read<UInt16>("Major version");
     const auto minorVersion = parser.read<UInt16>("Minor version");
     if (!(majorVersion == 1 && minorVersion == 0)) {
-        throw "invalid table version";
+        throw QString("invalid table version");
     }
 
-    parser.read<Offset16>("Offset to VariationAxisRecord array");
+    parser.read<Offset16>("Offset to Variation Axis Records array");
     parser.read<UInt16>("Reserved");
-    const auto axesCount = parser.read<UInt16>("The number of variation axes");
-    parser.read<UInt16>("The size of VariationAxisRecord");
-    const auto instancesCount = parser.read<UInt16>("The number of named instances");
-    const auto instanceSize = parser.read<UInt16>("The size of InstanceRecord");
+    const auto axesCount = parser.read<UInt16>("Number of variation axes");
+    parser.read<UInt16>("The size of Variation Axis Record");
+    const auto instancesCount = parser.read<UInt16>("Number of named instances");
+    const auto instanceSize = parser.read<UInt16>("The size of Instance Record");
 
-    parser.beginGroup("Variation axis records");
-    for (int i = 0; i < axesCount; ++i) {
-        parser.beginGroup(QString());
+    parser.readArray("Variation Axis Records", axesCount, [&](const auto index){
+        parser.beginGroup(index);
         const auto tag = parser.read<Tag>("Axis tag");
-        parser.read<Fixed>("Minimum coordinate");
-        parser.read<Fixed>("Default coordinate");
-        parser.read<Fixed>("Maximum coordinate");
+        parser.read<F16DOT16>("Minimum coordinate");
+        parser.read<F16DOT16>("Default coordinate");
+        parser.read<F16DOT16>("Maximum coordinate");
         parser.read<UInt16>("Axis qualifiers");
-        parser.read<UInt16>("The name ID");
-        parser.endGroup("Axis " + tag.toString());
-    }
-    parser.endGroup();
+        parser.readNameId("The name ID", names);
+        parser.endGroup(QString(), tag.toString());
+    });
 
-    if (instancesCount > 0) {
-        parser.beginGroup("Instance records");
-        for (int i = 0; i < instancesCount; ++i) {
-            parser.beginGroup("Instance");
+    const bool hasPostScriptName = instanceSize == axesCount * 4 + 6;
 
-            parser.read<UInt16>("Subfamily name ID");
-            parser.read<UInt16>("Reserved");
-            for (int a = 0; a < axesCount; ++a) {
-                parser.read<Fixed>("Coordinate");
-            }
+    parser.readArray("Instance Records", instancesCount, [&](const auto index){
+        parser.beginGroup(index);
 
-            if (instanceSize == 10) {
-                parser.read<UInt16>("PostScript name ID");
-            }
+        const auto name = parser.readNameId("Subfamily name ID", names);
+        parser.read<UInt16>("Reserved");
+        parser.readArray("Coordinates", axesCount, [&](const auto index2){
+            parser.read<F16DOT16>(index2);
+        });
 
-            parser.endGroup();
+        if (hasPostScriptName) {
+            parser.readNameId("PostScript name ID", names);
         }
-        parser.endGroup();
-    }
+
+        parser.endGroup(QString(), name);
+    });
 }

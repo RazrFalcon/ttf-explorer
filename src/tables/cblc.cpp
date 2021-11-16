@@ -1,8 +1,7 @@
 #include <bitset>
 
 #include "src/algo.h"
-#include "src/parser.h"
-#include "tables.h"
+#include "src/tables/tables.h"
 
 struct EblcBitmapFlags
 {
@@ -29,7 +28,7 @@ struct EblcBitmapFlags
     quint8 d;
 };
 
-const QString EblcBitmapFlags::Type = "BitFlags";
+const QString EblcBitmapFlags::Type = Parser::BitflagsType;
 
 static void parseSbitLineMetrics(Parser &parser)
 {
@@ -43,19 +42,10 @@ static void parseSbitLineMetrics(Parser &parser)
     parser.read<Int8>("Min advance SB");
     parser.read<Int8>("Max before BL");
     parser.read<Int8>("Min after BL");
-    parser.readBytes(2, "Padding");
+    parser.readPadding(2);
 }
 
-void parseSbitSmallGlyphMetrics(Parser &parser)
-{
-    parser.read<UInt8>("Height");
-    parser.read<UInt8>("Width");
-    parser.read<Int8>("X-axis bearing");
-    parser.read<Int8>("Y-axis bearing");
-    parser.read<UInt8>("Advance");
-}
-
-void parseSbitBigGlyphMetrics(Parser &parser)
+static void parseSbitBigGlyphMetrics(Parser &parser)
 {
     parser.read<UInt8>("Height");
     parser.read<UInt8>("Width");
@@ -69,16 +59,16 @@ void parseSbitBigGlyphMetrics(Parser &parser)
 
 void parseCblc(Parser &parser)
 {
-    const auto start = parser.offset();
+    const quint32 start = parser.offset();
 
     const auto majorVersion = parser.read<UInt16>("Major version");
     const auto minorVersion = parser.read<UInt16>("Minor version");
     // Some old Noto Emoji fonts have a 2.0 version.
     if (!((majorVersion == 2 || majorVersion == 3) && minorVersion == 0)) {
-        throw "invalid table version";
+        throw QString("invalid table version");
     }
 
-    const auto numSizes = parser.read<UInt32>("Number of tables");
+    const auto numTables = parser.read<UInt32>("Number of tables");
 
     struct SubtableArray
     {
@@ -87,8 +77,8 @@ void parseCblc(Parser &parser)
     };
 
     QVector<SubtableArray> subtableArrays;
-    for (uint i = 0; i < numSizes; ++i) {
-        parser.beginGroup("Table");
+    parser.readArray("Tables", numTables, [&](const auto index){
+        parser.beginGroup(index);
 
         const auto offset = parser.read<Offset32>("Offset to index subtable");
         parser.read<UInt32>("Index tables size");
@@ -113,78 +103,66 @@ void parseCblc(Parser &parser)
         parser.endGroup();
 
         subtableArrays.append(SubtableArray { offset, numOfSubtables });
-    }
+    });
 
     algo::sort_all_by_key(subtableArrays, &SubtableArray::offset);
     algo::dedup_vector_by_key(subtableArrays, &SubtableArray::offset);
 
-    struct SubtableInfo
-    {
-        quint16 firstGlyph;
-        quint16 lastGlyph;
-        quint32 offset;
-    };
-
-    QVector<SubtableInfo> subtables;
-    for (const auto array : subtableArrays) {
-        parser.jumpTo(start + array.offset);
+    parser.readArray("Arrays", subtableArrays.size(), [&](const auto index){
+        const auto array = subtableArrays[index];
+        parser.advanceTo(start + array.offset);
 
         for (uint i = 0; i < array.numOfSubtables; ++i) {
-            parser.beginGroup("Index subtable array");
+            const auto start = parser.offset();
+
+            parser.beginGroup("Index Subtable Array");
             const auto firstGlyph = parser.read<GlyphId>("First glyph ID");
             const auto lastGlyph = parser.read<GlyphId>("Last glyph ID");
             const auto offset2 = parser.read<Offset32>("Additional offset to index subtable");
-            parser.endGroup();
 
-            subtables.append(SubtableInfo { firstGlyph, lastGlyph, start + array.offset + offset2 });
-        }
-    }
+            parser.advanceTo(start + offset2);
+            parser.beginGroup("Index Subtable");
+            const auto indexFormat = parser.read<UInt16>("Index format");
+            parser.read<UInt16>("Image format");
+            parser.read<Offset32>("Offset to image data");
 
-    algo::sort_all_by_key(subtables, &SubtableInfo::offset);
-    algo::dedup_vector_by_key(subtables, &SubtableInfo::offset);
-
-    for (const auto info : subtables) {
-        parser.jumpTo(info.offset);
-        parser.beginGroup("Index subtable");
-        const auto indexFormat = parser.read<UInt16>("Index format");
-        parser.read<UInt16>("Image format");
-        parser.read<Offset32>("Offset to image data");
-
-        if (indexFormat == 1) {
-            // TODO: check
-            const auto count = info.lastGlyph - info.firstGlyph + 2;
-            parser.readArray<Offset32>("Offsets", "Offset", quint32(count));
-        } else if (indexFormat == 2) {
-            parser.read<UInt32>("Image size");
-            parseSbitBigGlyphMetrics(parser);
-        } else if (indexFormat == 3) {
-            // TODO: check
-            const auto count = info.lastGlyph - info.firstGlyph + 2;
-            parser.readArray<Offset16>("Offsets", "Offset", quint32(count));
-        } else if (indexFormat == 4) {
-            const auto numGlyphs = parser.read<UInt32>("Number of glyphs");
-            for (uint i = 0; i <= numGlyphs; ++i) {
-                parser.read<GlyphId>("Glyph ID");
-                parser.read<Offset16>("Offset");
+            if (indexFormat == 1) {
+                // TODO: check
+                const auto count = lastGlyph - firstGlyph + 1;
+                parser.readBasicArray<Offset32>("Offsets", quint32(count));
+            } else if (indexFormat == 2) {
+                parser.read<UInt32>("Image size");
+                parseSbitBigGlyphMetrics(parser);
+            } else if (indexFormat == 3) {
+                // TODO: check
+                const auto count = lastGlyph - firstGlyph + 1;
+                parser.readBasicArray<Offset16>("Offsets", quint32(count));
+            } else if (indexFormat == 4) {
+                const auto numGlyphs = parser.read<UInt32>("Number of glyphs");
+                for (uint i = 0; i <= numGlyphs; ++i) {
+                    parser.read<GlyphId>("Glyph ID");
+                    parser.read<Offset16>("Offset");
+                }
+            } else if (indexFormat == 5) {
+                parser.read<UInt32>("Image size");
+                parseSbitBigGlyphMetrics(parser);
+                const auto numGlyphs = parser.read<UInt32>("Number of glyphs");
+                parser.readBasicArray<GlyphId>("Glyphs", numGlyphs);
+            } else {
+                throw QString("unsupported index format");
             }
-        } else if (indexFormat == 5) {
-            parser.read<UInt32>("Image size");
-            parseSbitBigGlyphMetrics(parser);
-            const auto numGlyphs = parser.read<UInt32>("Number of glyphs");
-            parser.readArray<GlyphId>("Glyphs", "Glyph ID", numGlyphs);
-        } else {
-            throw "unsupported index format";
-        }
 
-        parser.endGroup();
-    }
+            parser.endGroup();
+            parser.endGroup();
+        }
+    });
 }
 
-QVector<CblcIndex> parseCblcLocations(ShadowParser parser)
+QVector<CblcIndex> parseCblcLocations(ShadowParser &parser)
 {
     QVector<CblcIndex> locations;
 
-    const auto start = parser.offset();
+    const quint32 start = parser.offset();
 
     parser.skip<UInt16>(); // Major version
     parser.skip<UInt16>(); // Minor version
@@ -240,7 +218,7 @@ QVector<CblcIndex> parseCblcLocations(ShadowParser parser)
         const auto imageDataOffset = parser.read<Offset32>();
 
         if (indexFormat == 1) {
-            const auto count = quint32(info.lastGlyph - info.firstGlyph + 2);
+            const auto count = quint32(info.lastGlyph - info.firstGlyph + 1);
             QVector<quint32> offsets;
             for (quint32 i = 0; i < count; ++i) {
                 offsets.append(imageDataOffset + parser.read<Offset32>());
@@ -266,7 +244,7 @@ QVector<CblcIndex> parseCblcLocations(ShadowParser parser)
                 locations.append(CblcIndex { imageFormat, Range { start, end } });
             }
         } else if (indexFormat == 3) {
-            const auto count = quint32(info.lastGlyph - info.firstGlyph + 2);
+            const auto count = quint32(info.lastGlyph - info.firstGlyph + 1);
             QVector<quint32> offsets;
             for (quint32 i = 0; i < count; ++i) {
                 offsets.append(imageDataOffset + parser.read<Offset16>());

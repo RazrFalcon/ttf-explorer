@@ -1,13 +1,12 @@
-#include "src/parser.h"
 #include "tables.h"
 
 void parseVhea(Parser &parser)
 {
-    const auto version = parser.read<Fixed>("Version");
+    const auto version = parser.read<F16DOT16>("Version");
 
     // 1.0625 is actully means 1.1
     if (version != 1.0f && version != 1.0625f) {
-        throw "invalid table version";
+        throw QString("invalid table version");
     }
 
     // The difference between 1.0 and 1.1 only in field names,
@@ -29,10 +28,4 @@ void parseVhea(Parser &parser)
     parser.read<Int16>("Reserved");
     parser.read<Int16>("Metric data format");
     parser.read<UInt16>("Number of vertical metrics");
-}
-
-quint16 parseVheaNumberOfMetrics(ShadowParser parser)
-{
-    parser.jumpTo(34);
-    return parser.read<UInt16>();
 }

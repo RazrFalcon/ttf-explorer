@@ -1,9 +1,31 @@
 #include <bitset>
 
-#include <QFlag>
+#include <QVarLengthArray>
 
-#include "src/parser.h"
+#include "src/algo.h"
+
 #include "tables.h"
+
+struct NegativeUInt8
+{
+    static const int Size = 1;
+    static const QString Type;
+
+    static NegativeUInt8 parse(const uint8_t *data)
+    { return { data[0] }; }
+
+    static QString toString(const NegativeUInt8 &value)
+    { return numberToString(-qint16(value.d)); }
+
+    DEFAULT_DEBUG(NegativeUInt8)
+
+    operator uint8_t() const { return d; }
+
+    uint8_t d;
+};
+
+const QString NegativeUInt8::Type = UInt8::Type;
+
 
 struct SimpleGlyphFlags
 {
@@ -30,6 +52,20 @@ struct SimpleGlyphFlags
 
     static QString toString(const SimpleGlyphFlags &value)
     {
+        // This method would be called a lot, therefore we have to use a cache.
+        //
+        // Valid flags would be in a 0..64 range, so using a QVarLengthArray
+        // is more performant than QHash.
+        static QVarLengthArray<QString, 64> cache;
+
+        if (cache.isEmpty()) {
+            cache.resize(64);
+        }
+
+        if (value.d < cache.size() && !cache[value.d].isEmpty()) {
+            return cache[value.d];
+        }
+
         std::bitset<8> bits(value.d);
         auto flagsStr = QString::fromUtf8(bits.to_string().c_str()) + '\n';
 
@@ -53,6 +89,10 @@ struct SimpleGlyphFlags
 
         flagsStr.chop(1); // trim trailing newline
 
+        if (value.d < cache.size()) {
+            cache[value.d] = flagsStr;
+        }
+
         return flagsStr;
     }
 
@@ -61,7 +101,7 @@ struct SimpleGlyphFlags
     Flag d;
 };
 
-const QString SimpleGlyphFlags::Type = "BitFlags";
+const QString SimpleGlyphFlags::Type = Parser::BitflagsType;
 
 
 struct CompositeGlyphFlags
@@ -83,7 +123,7 @@ struct CompositeGlyphFlags
         OVERLAP_COMPOUND = 0x0400,
         SCALED_COMPONENT_OFFSET = 0x0800,
         UNSCALED_COMPONENT_OFFSET = 0x1000,
-    };
+   };
 
     Q_DECLARE_FLAGS(Flags, Flag)
 
@@ -122,55 +162,21 @@ struct CompositeGlyphFlags
     Flag d;
 };
 
-const QString CompositeGlyphFlags::Type = "BitFlags";
+const QString CompositeGlyphFlags::Type = Parser::BitflagsType;
 
-
-static QVector<quint32> collectGlyphSizes(const quint16 numberOfGlyphs,
-                                          const IndexToLocFormat format,
-                                          const gsl::span<const quint8> locaData)
-{
-    quint32 lastOffset = 0;
-    QVector<quint32> glyphSizes;
-    ShadowParser locaParser(locaData);
-    for (int i = 0; i <= numberOfGlyphs; ++i) {
-        quint32 offset = 0;
-        if (format == IndexToLocFormat::Short) {
-            offset = locaParser.read<Offset16>() * 2;
-        } else {
-            offset = locaParser.read<Offset32>();
-        }
-
-        if (offset < lastOffset) {
-            throw "invalid offset";
-        } else {
-            // Can be zero.
-            glyphSizes << offset - lastOffset;
-        }
-
-        lastOffset = offset;
-    }
-
-    glyphSizes.remove(0);
-
-    return glyphSizes;
-}
 
 static void parseSimpleGlyph(const quint16 numOfContours, Parser &parser)
 {
     quint16 lastPoint = 0;
-    parser.beginGroup("Endpoints");
-    for (uint i = 0; i < numOfContours; ++i) {
-        lastPoint = parser.read<UInt16>(QString("Endpoint %1").arg(i));
-    }
-    parser.endGroup();
+    parser.readArray("Endpoints", numOfContours, [&](const auto index){
+        lastPoint = parser.read<UInt16>(index);
+    });
 
     const auto instructionLength = parser.read<UInt16>("Instructions size");
-    if (instructionLength > 0) {
-        parser.readBytes(instructionLength, "Instructions");
-    }
+    parser.readBytes("Instructions", instructionLength);
 
     parser.beginGroup("Flags");
-    QVector<SimpleGlyphFlags> allFlags;
+    QVarLengthArray<SimpleGlyphFlags> allFlags;
     const auto totalPoints = lastPoint + 1;
     auto pointsLeft = totalPoints;
     while (pointsLeft > 0) {
@@ -191,41 +197,81 @@ static void parseSimpleGlyph(const quint16 numOfContours, Parser &parser)
     }
     parser.endGroup();
 
-    parser.beginGroup("X-coordinates");
-    for (const auto flags : allFlags) {
-        if (flags & SimpleGlyphFlags::X_SHORT_VECTOR) {
-            if (flags & SimpleGlyphFlags::X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR) {
-                parser.read<UInt8>("Coordinate");
+    {
+        // The number of coordinates can be lower than the number of flags.
+        int xCoords = 0;
+        for (const auto flags : allFlags) {
+            if (flags & SimpleGlyphFlags::X_SHORT_VECTOR) {
+                if (flags & SimpleGlyphFlags::X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR) {
+                    xCoords += 1;
+                } else {
+                    xCoords += 1;
+                }
             } else {
-                parser.read<UInt8>("Coordinate"); // TODO: negative
-            }
-        } else {
-            if (flags & SimpleGlyphFlags::X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR) {
-                // Nothing.
-            } else {
-                parser.read<Int16>("Coordinate");
+                if (flags & SimpleGlyphFlags::X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR) {
+                    // Nothing.
+                } else {
+                    xCoords += 1;
+                }
             }
         }
-    }
-    parser.endGroup();
 
-    parser.beginGroup("Y-coordinates");
-    for (const auto flags : allFlags) {
-        if (flags & SimpleGlyphFlags::Y_SHORT_VECTOR) {
-            if (flags & SimpleGlyphFlags::Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR) {
-                parser.read<UInt8>("Coordinate");
+        parser.beginArray("X-coordinates", xCoords);
+        for (auto [index, flags] : algo::enumerate(allFlags)) {
+            if (*flags & SimpleGlyphFlags::X_SHORT_VECTOR) {
+                if (*flags & SimpleGlyphFlags::X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR) {
+                    parser.read<UInt8>(index);
+                } else {
+                    parser.read<NegativeUInt8>(index);
+                }
             } else {
-                parser.read<UInt8>("Coordinate"); // TODO: negative
-            }
-        } else {
-            if (flags & SimpleGlyphFlags::Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR) {
-                // Nothing.
-            } else {
-                parser.read<Int16>("Coordinate");
+                if (*flags & SimpleGlyphFlags::X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR) {
+                    // Nothing.
+                } else {
+                    parser.read<Int16>(index);
+                }
             }
         }
+        parser.endArray();
     }
-    parser.endGroup();
+
+    {
+        // The number of coordinates can be lower than the number of flags.
+        int yCoords = 0;
+        for (const auto flags : allFlags) {
+            if (flags & SimpleGlyphFlags::Y_SHORT_VECTOR) {
+                if (flags & SimpleGlyphFlags::Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR) {
+                    yCoords += 1;
+                } else {
+                    yCoords += 1;
+                }
+            } else {
+                if (flags & SimpleGlyphFlags::Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR) {
+                    // Nothing.
+                } else {
+                    yCoords += 1;
+                }
+            }
+        }
+
+        parser.beginArray("Y-coordinates", yCoords);
+        for (auto [index, flags] : algo::enumerate(allFlags)) {
+            if (*flags & SimpleGlyphFlags::Y_SHORT_VECTOR) {
+                if (*flags & SimpleGlyphFlags::Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR) {
+                    parser.read<UInt8>(index);
+                } else {
+                    parser.read<NegativeUInt8>(index);
+                }
+            } else {
+                if (*flags & SimpleGlyphFlags::Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR) {
+                    // Nothing.
+                } else {
+                    parser.read<Int16>(index);
+                }
+            }
+        }
+        parser.endArray();
+    }
 }
 
 static void parseCompositeGlyph(Parser &parser)
@@ -233,11 +279,12 @@ static void parseCompositeGlyph(Parser &parser)
     const auto flags = parser.read<CompositeGlyphFlags>("Flag");
     parser.read<GlyphId>("Glyph ID");
 
-
     std::array<double, 6> matrix = {0};
+    bool hasTs = false;
 
-    parser.beginGroup(QString());
     if (flags & CompositeGlyphFlags::ARGS_ARE_XY_VALUES) {
+        parser.beginGroup();
+        hasTs = true;
         if (flags & CompositeGlyphFlags::ARG_1_AND_2_ARE_WORDS) {
             matrix[4] = parser.read<Int16>("E");
             matrix[5] = parser.read<Int16>("F");
@@ -245,88 +292,117 @@ static void parseCompositeGlyph(Parser &parser)
             matrix[4] = parser.read<Int8>("E");
             matrix[5] = parser.read<Int8>("F");
         }
+    } else {
+        if (flags & CompositeGlyphFlags::ARG_1_AND_2_ARE_WORDS) {
+            parser.read<UInt16>("Point 1");
+            parser.read<UInt16>("Point 2");
+        } else {
+            parser.read<UInt8>("Point 1");
+            parser.read<UInt8>("Point 2");
+        }
     }
 
     if (flags & CompositeGlyphFlags::WE_HAVE_A_TWO_BY_TWO) {
+        if (!hasTs) {
+            parser.beginGroup();
+        }
+        hasTs = true;
+
         matrix[0] = parser.read<F2DOT14>("A");
         matrix[1] = parser.read<F2DOT14>("B");
         matrix[2] = parser.read<F2DOT14>("C");
         matrix[3] = parser.read<F2DOT14>("D");
     } else if (flags & CompositeGlyphFlags::WE_HAVE_AN_X_AND_Y_SCALE) {
+        if (!hasTs) {
+            parser.beginGroup();
+        }
+        hasTs = true;
+
         matrix[0] = parser.read<F2DOT14>("A");
         matrix[3] = parser.read<F2DOT14>("D");
     } else if (flags & CompositeGlyphFlags::WE_HAVE_A_SCALE) {
+        if (!hasTs) {
+            parser.beginGroup();
+        }
+        hasTs = true;
+
         matrix[0] = parser.read<F2DOT14>("A");
         matrix[3] = matrix[0];
     }
 
-    const auto matrixStr = QString("Matrix (%1 %2 %3 %4 %5 %6)")
-        .arg(QString::number(matrix.at(0)))
-        .arg(QString::number(matrix.at(1)))
-        .arg(QString::number(matrix.at(2)))
-        .arg(QString::number(matrix.at(3)))
-        .arg(QString::number(matrix.at(4)))
-        .arg(QString::number(matrix.at(5)));
-    parser.endGroup(matrixStr);
+    if (hasTs) {
+        const auto matrixStr = QString("%1 %2 %3 %4 %5 %6")
+            .arg(floatToString(matrix.at(0)))
+            .arg(floatToString(matrix.at(1)))
+            .arg(floatToString(matrix.at(2)))
+            .arg(floatToString(matrix.at(3)))
+            .arg(floatToString(matrix.at(4)))
+            .arg(floatToString(matrix.at(5)));
+        parser.endGroup("Matrix", matrixStr);
+    }
 
     if (flags & CompositeGlyphFlags::MORE_COMPONENTS) {
         parseCompositeGlyph(parser);
+    } else if (flags & CompositeGlyphFlags::WE_HAVE_INSTRUCTIONS) {
+         const auto size = parser.read<UInt16>("Number of instructions");
+         parser.readBytes("Instructions", size);
     }
 }
 
-enum class GlyphType
+void parseGlyf(const quint16 numberOfGlyphs, const QVector<quint32> &glyphOffsets, Parser &parser)
 {
-    Empty,
-    Simple,
-    Composite,
-};
+    Q_ASSERT(int(numberOfGlyphs) + 1 == glyphOffsets.size());
 
-static GlyphType parseGlyph(Parser &parser)
-{
-    const auto numOfContours = parser.read<Int16>("Number of contours");
-    parser.read<Int16>("x min");
-    parser.read<Int16>("y min");
-    parser.read<Int16>("x max");
-    parser.read<Int16>("y max");
+    const auto tableStart = parser.offset();
 
-    if (numOfContours == 0) {
-        return GlyphType::Empty;
-    } else if (numOfContours > 0) {
-        parseSimpleGlyph(quint16(numOfContours), parser);
-        return GlyphType::Simple;
-    } else {
-        parseCompositeGlyph(parser);
-        return GlyphType::Composite;
+    // Glyphs can be empty, therefore the real number of glyphs can be lower than numberOfGlyphs.
+    int glyphsCount = 0;
+    for (quint16 i = 0; i < numberOfGlyphs; i++) {
+        if (glyphOffsets[i] != glyphOffsets[i + 1]) {
+            glyphsCount += 1;
+        }
     }
-}
 
-void parseGlyf(const quint16 numberOfGlyphs, const IndexToLocFormat format,
-               const gsl::span<const quint8> locaData, Parser &parser)
-{
-    const auto glyphSizes = collectGlyphSizes(numberOfGlyphs, format, locaData);
-
-    for (int gid = 0; gid < numberOfGlyphs; ++gid) {
-        const auto glyphSize = glyphSizes.at(gid);
-        if (glyphSize == 0) {
+    parser.beginArray("Glyphs", glyphsCount);
+    for (quint16 index = 0; index < numberOfGlyphs; index++) {
+        const auto start = tableStart + glyphOffsets[index];
+        const auto end = tableStart + glyphOffsets[index + 1];
+        if (start == end) {
             continue;
         }
 
-        const auto start = parser.offset();
+        parser.beginGroup();
 
-        parser.beginGroup(QString("Glyph %1").arg(gid));
-        const auto type = parseGlyph(parser);
+        const auto numberOfContours = parser.read<Int16>("Number of contours");
+        parser.read<Int16>("x min");
+        parser.read<Int16>("y min");
+        parser.read<Int16>("x max");
+        parser.read<Int16>("y max");
 
-        if (type == GlyphType::Composite) {
-            parser.endGroup(QString("Glyph %1 (composite)").arg(gid));
+        if (numberOfContours == 0) {
+            // Empty.
+        } else if (numberOfContours > 0) {
+            parseSimpleGlyph(quint16(numberOfContours), parser);
         } else {
-            parser.endGroup();
+            parseCompositeGlyph(parser);
         }
 
-        const auto diff = parser.offset() - start;
-        if (glyphSize > diff) {
-            parser.readBytes(glyphSize - diff, "Padding");
-        } else if (glyphSize < diff) {
-            throw "malformed glyph";
+        if (parser.offset() < end) {
+            const auto diff = end - parser.offset();
+            if (diff < 4) {
+                parser.readPadding(diff);
+            } else {
+                parser.readUnsupported(diff);
+            }
+        }
+
+        if (numberOfContours == 0) {
+            parser.endGroup(QString("Glyph %1 (empty)").arg(index));
+        } else if (numberOfContours > 0) {
+            parser.endGroup(QString("Glyph %1").arg(index));
+        } else {
+            parser.endGroup(QString("Glyph %1 (composite)").arg(index));
         }
     }
+    parser.endArray();
 }

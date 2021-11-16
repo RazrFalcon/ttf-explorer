@@ -1,11 +1,15 @@
 #pragma once
 
-#include <QtGlobal>
+#include <QDebug>
 
 struct Range
 {
-    quint32 start = 0;
-    quint32 end = 0;
+    Range() {}
+    Range(const quint32 start, const quint32 end)
+    {
+        this->start = start;
+        this->end = end;
+    }
 
     bool contains(const quint32 index) const
     { return index >= start && index < end; }
@@ -30,4 +34,19 @@ struct Range
 
     quint32 size() const
     { return end - start; }
+
+    quint32 start = 0;
+    quint32 end = 0;
+};
+
+inline QDebug operator<<(QDebug dbg, const Range &range)
+{
+    return dbg.noquote() << QString("Range(%1..%2)").arg(range.start).arg(range.end);
+}
+
+
+struct Ranges
+{
+    std::vector<quint32> offsets;
+    std::vector<quint32> unsupported;
 };

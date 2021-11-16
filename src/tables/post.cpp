@@ -1,10 +1,9 @@
-#include "src/parser.h"
 #include "tables.h"
 
-void parsePost(const quint32 end, Parser &parser)
+void parsePost(Parser &parser)
 {
-    const auto version = parser.read<Fixed>("Version");
-    parser.read<Fixed>("Italic angle");
+    const auto version = parser.read<F16DOT16>("Version");
+    parser.read<F16DOT16>("Italic angle");
     parser.read<Int16>("Underline position");
     parser.read<Int16>("Underline thickness");
     parser.read<UInt32>("Is fixed pitch");
@@ -17,25 +16,16 @@ void parsePost(const quint32 end, Parser &parser)
         return;
     }
 
-    const auto numGlyphs = parser.read<UInt16>("Number of glyphs");
-    if (numGlyphs != 0) {
-        parser.beginGroup("Glyph name indexes");
-
-        for (auto i = 0; i < numGlyphs; ++i) {
-            parser.read<UInt16>("Index");
+    const auto numberOfGlyphs = parser.read<UInt16>("Number of glyphs");
+    int numberOfNames2 = 0;
+    parser.readArray("Glyph Name Indexes", numberOfGlyphs, [&](const auto index){
+        const auto n = parser.read<UInt16>(index);
+        if (n > 257) {
+            numberOfNames2 += 1;
         }
+    });
 
-        parser.endGroup();
-    }
-
-    while (parser.offset() < end) {
-        parser.beginGroup("");
-        const auto len = parser.read<UInt8>("Length");
-        if (len != 0) {
-            const auto name = parser.readString(len, "Data");
-            parser.endGroup(name);
-        } else {
-            parser.endGroup();
-        }
-    }
+    parser.readArray("Names", numberOfNames2, [&](const auto index){
+        parser.readPascalString(numberToString(index));
+    });
 }

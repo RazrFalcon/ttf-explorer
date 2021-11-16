@@ -1,7 +1,6 @@
-#include "src/parser.h"
 #include "tables.h"
 
-void parseStat(Parser &parser)
+void parseStat(const NamesHash &names, Parser &parser)
 {
     parser.read<UInt16>("Major version");
     const auto minorVersion = parser.read<UInt16>("Minor version");
@@ -16,20 +15,16 @@ void parseStat(Parser &parser)
         elidedFallbackNameID = parser.read<UInt16>("Fallback name ID");
     }
 
-    parser.beginGroup("Design axes", QString::number(designAxisCount));
-    for (int i = 0; i < designAxisCount; ++i) {
-        parser.beginGroup("Record");
-        parser.read<Tag>("Tag");
-        parser.read<UInt16>("Name ID");
+    parser.readArray("Design Axes", designAxisCount, [&](const auto index){
+        parser.beginGroup(index);
+        const auto tag = parser.read<Tag>("Tag");
+        const auto name = parser.readNameId("Name ID", names);
         parser.read<UInt16>("Axis ordering");
-        parser.endGroup();
-    }
-    parser.endGroup();
+        parser.endGroup(QString(), QString("%1 (%2)").arg(name).arg(tag.toString()));
+    });
 
     // TODO: parse axis
-    parser.beginGroup("Axis value tables offsets", QString::number(axisValueCount));
-    for (int i = 0; i < axisValueCount; ++i) {
-        parser.read<UInt16>("Offset");
-    }
-    parser.endGroup();
+    parser.readArray("Axis Value Tables Offsets", axisValueCount, [&](const auto index){
+        parser.read<UInt16>(index);
+    });
 }

@@ -7,7 +7,7 @@
 
 #include <cmath>
 
-#include "algo.h"
+#include "utils.h"
 
 #include "hexview.h"
 
@@ -37,10 +37,12 @@ static QPixmap renderRegion(const QSize &size, const QRect &rect, const QColor &
 
     QPainter p(&pix);
     p.setRenderHint(QPainter::Antialiasing);
+#ifndef Q_OS_MAC
     p.setOpacity(0.5);
+#endif
     p.setPen(Qt::NoPen);
     p.setBrush(color);
-    p.drawRoundedRect(scaledRect, 4, 4);
+    p.drawRoundedRect(scaledRect, 6, 6);
     p.end();
 
     pix.setDevicePixelRatio(scaleRatio);
@@ -50,7 +52,7 @@ static QPixmap renderRegion(const QSize &size, const QRect &rect, const QColor &
 
 HexView::HexView(QWidget *parent)
     : QAbstractScrollArea(parent)
-    , m_hexTable(initHexTable(QFont("monospace")))
+    , m_hexTable(initHexTable(QFont(Utils::monospacedFont())))
 {
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
@@ -59,7 +61,7 @@ HexView::HexView(QWidget *parent)
         viewport()->update();
     });
 
-    viewport()->setFont(QFont("monospace"));
+    viewport()->setFont(QFont(Utils::monospacedFont()));
 
     const auto fm = viewport()->fontMetrics();
     m_charMetrics.width = fm.horizontalAdvance('0');
@@ -72,7 +74,12 @@ HexView::HexView(QWidget *parent)
 
     {
         const QSize size(m_charMetrics.blockWidth, m_charMetrics.height + 1);
+        // QPalette::Highlight returns a wrong color on macOS
+#ifdef Q_OS_MAC
+        const auto brush = QColor("#053FC5");
+#else
         const auto brush = palette().color(QPalette::Highlight);
+#endif
 
         // Larger rect will be clipped and that's what we want.
         m_pixmaps.rangeSingle = renderRegion(size, QRect(0, 0, size.width() - 3, size.height()), brush);
@@ -84,54 +91,29 @@ HexView::HexView(QWidget *parent)
     prepareMinWidth();
 }
 
-void HexView::setData(const QByteArray &data, const QVector<Range> &ranges)
+void HexView::setData(const uchar *data, const quint32 dataSize, Ranges &&ranges)
 {
-    Q_ASSERT(!ranges.isEmpty());
-
     clear();
-    m_totalLines = static_cast<quint32>(std::ceil(static_cast<double>(data.size()) / BytesPerLine));
-    int rangeIdx = 0;
+    m_totalLines = static_cast<quint32>(std::ceil(static_cast<double>(dataSize) / BytesPerLine));
+    Q_ASSERT(m_totalLines < INT_MAX); // QScrollBar is limited by `int`
 
-    for (quint32 i = 0; i < quint32(data.size()); ++i) {
-        auto posType = RangePosType::None;
+    m_ranges = std::move(ranges);
 
-        const auto range = ranges.at(rangeIdx);
-        if (range.contains(i)) {
-            if (range.isSingle()) {
-                posType = RangePosType::Single;
-
-                // Jump to the next range.
-                // Ranges must be sorted.
-                if (rangeIdx + 1 < ranges.size()) {
-                    rangeIdx += 1;
-                }
-            } else if (range.isStart(i)) {
-                posType = RangePosType::Start;
-            } else if (range.isEnd(i)) {
-                posType = RangePosType::End;
-
-                // Jump to the next range.
-                // Ranges must be sorted.
-                if (rangeIdx + 1 < ranges.size()) {
-                    rangeIdx += 1;
-                }
-            } else {
-                posType = RangePosType::Middle;
-            }
-        }
-
-        m_data.append(HexViewByte {
-            static_cast<uchar>(data.at(int(i))),
-            posType,
-        });
-    }
+    m_data = data;
+    m_dataSize = dataSize;
 
     verticalScrollBar()->setMaximum(qMax(0, int(m_totalLines - maxLinesPerView())));
+
+    update();
+    viewport()->update();
 }
 
 void HexView::clear()
 {
-    m_data.clear();
+    m_data = nullptr;
+    m_dataSize = 0;
+    m_ranges.offsets.clear();
+    m_ranges.unsupported.clear();
     m_totalLines = 0;
     m_selection = std::nullopt;
 }
@@ -162,7 +144,7 @@ void HexView::scrollTo(const int offset)
 
 void HexView::paintEvent(QPaintEvent *)
 {
-    if (m_data.isEmpty()) {
+    if (m_data == nullptr) {
         return;
     }
 
@@ -170,83 +152,141 @@ void HexView::paintEvent(QPaintEvent *)
     drawView(p);
 }
 
+enum class RangePosType : quint8
+{
+    None,
+    Single,
+    Start,
+    Middle,
+    End,
+};
+
 void HexView::drawView(QPainter &p) const
 {
     const QRect r = p.viewport();
 
     // draw lines
     auto lineIdx = scrollPosition();
+    const quint32 startIdx = lineIdx * BytesPerLine;
+
+    const auto it = std::lower_bound(m_ranges.offsets.begin(), m_ranges.offsets.end(), startIdx);
+    auto rangeIndex = (quint32)std::distance(m_ranges.offsets.begin(), it);
+    if (rangeIndex > 0 && m_ranges.offsets[rangeIndex] > startIdx) {
+        rangeIndex -= 1;
+    }
+
+    quint32 rangeStart = 0;
+    quint32 rangeEnd = 0;
+    bool isUnsupported = false;
+    auto updateRanges = [&rangeIndex, &rangeStart, &rangeEnd, &isUnsupported, this]() {
+        rangeStart = rangeIndex < m_ranges.offsets.size() ? m_ranges.offsets[rangeIndex] : 0;
+        rangeEnd = (rangeIndex + 1 < m_ranges.offsets.size() ? m_ranges.offsets[rangeIndex + 1] : m_dataSize);
+
+        isUnsupported = std::binary_search(m_ranges.unsupported.begin(), m_ranges.unsupported.end(), rangeStart);
+    };
+
+    updateRanges();
+
     const int maxH = r.height() + m_charMetrics.height + 4;
     for (int y = m_charMetrics.height; y < maxH; y += m_charMetrics.height + 4) {
-        drawLine(p, lineIdx, y);
+        const quint32 startIdx = lineIdx * BytesPerLine;
+        const quint32 endIdx = quint32(qMin(startIdx + BytesPerLine, m_dataSize));
+
+        int x = m_charMetrics.padding;
+        for (quint32 i = startIdx; i < endIdx; ++i) {
+            auto posType = RangePosType::None;
+
+            if (isUnsupported && i != rangeEnd) {
+                // skip
+            } else {
+                if (i == rangeStart) {
+                    if (rangeEnd - rangeStart > 1) {
+                        posType = RangePosType::Start;
+                    } else {
+                        posType = RangePosType::Single;
+                    }
+                } else if (i + 1 == rangeEnd) {
+                    if (!isUnsupported) {
+                        posType = RangePosType::End;
+                    }
+                } else {
+                    posType = RangePosType::Middle;
+                }
+            }
+
+            if (m_selection && m_selection->contains(i)) {
+                const auto range = m_selection.value();
+                const auto imgX = x - m_charMetrics.padding / 2;
+                const auto imgY = y - m_charMetrics.height + m_charMetrics.descent;
+                if (range.isSingle()) {
+                    p.drawPixmap(imgX, imgY, m_pixmaps.rangeSingle);
+                } else if (range.isStart(i)) {
+                    p.drawPixmap(imgX, imgY, m_pixmaps.rangeStart);
+                } else if (range.isMiddle(i)) {
+                    p.drawPixmap(imgX, imgY, m_pixmaps.rangeMiddle);
+                } else if (range.isEnd(i)) {
+                    p.drawPixmap(imgX, imgY, m_pixmaps.rangeEnd);
+                }
+            } else {
+                // QPalette::Highlight returns a wrong color on macOS
+#ifdef Q_OS_MAC
+                const auto c = QColor("#053FC5");
+#else
+                const auto c = palette().color(QPalette::Active, QPalette::Highlight).darker(150);
+#endif
+                const auto uy = y + 3;
+                const auto h = 2;
+
+                switch (posType) {
+                    case RangePosType::None : break;
+                    case RangePosType::Single : {
+                        p.fillRect(x, uy, m_charMetrics.hexWidth, h, c);
+                        break;
+                    }
+                    case RangePosType::Start : {
+                        const auto w = i + 1 == endIdx ? m_charMetrics.hexWidth : m_charMetrics.blockWidth;
+                        p.fillRect(x, uy, w, h, c);
+                        break;
+                    }
+                    case RangePosType::Middle : {
+                        const auto w = i + 1 == endIdx ? m_charMetrics.hexWidth : m_charMetrics.blockWidth;
+                        p.fillRect(x, uy, w, h, c);
+                        break;
+                    }
+                    case RangePosType::End : {
+                        p.fillRect(x, uy, m_charMetrics.hexWidth, h, c);
+                        break;
+                    }
+                }
+            }
+
+            if (posType == RangePosType::None) {
+                p.setPen(palette().color(QPalette::Disabled, QPalette::Text));
+            } else {
+                p.setPen(palette().color(QPalette::Active, QPalette::Text));
+            }
+
+            p.drawStaticText(x, y - m_charMetrics.ascent, m_hexTable.at(m_data[i]));
+            p.setPen(palette().color(QPalette::Active, QPalette::Text));
+
+            x += m_charMetrics.blockWidth;
+
+            if (i == rangeStart) {
+                if (rangeEnd - rangeStart == 1) {
+                    rangeIndex += 1;
+                    updateRanges();
+                }
+            } else if (i + 1 == rangeEnd) {
+                rangeIndex += 1;
+                updateRanges();
+            }
+        }
+
         lineIdx += 1;
 
         if (lineIdx >= m_totalLines) {
             break;
         }
-    }
-}
-
-void HexView::drawLine(QPainter &p, const quint32 lineIdx, const int y) const
-{
-    const quint32 startIdx = lineIdx * BytesPerLine;
-    const quint32 endIdx = quint32(qMin(int(startIdx) + BytesPerLine, m_data.size()));
-
-    int x = m_charMetrics.padding;
-    for (quint32 i = startIdx; i < endIdx; ++i) {
-        const auto viewByte = m_data.at(int(i));
-
-        if (m_selection && m_selection->contains(i)) {
-            const auto range = m_selection.value();
-            const auto imgX = x - m_charMetrics.padding / 2;
-            const auto imgY = y - m_charMetrics.height + m_charMetrics.descent;
-            if (range.isSingle()) {
-                p.drawPixmap(imgX, imgY, m_pixmaps.rangeSingle);
-            } else if (range.isStart(i)) {
-                p.drawPixmap(imgX, imgY, m_pixmaps.rangeStart);
-            } else if (range.isMiddle(i)) {
-                p.drawPixmap(imgX, imgY, m_pixmaps.rangeMiddle);
-            } else if (range.isEnd(i)) {
-                p.drawPixmap(imgX, imgY, m_pixmaps.rangeEnd);
-            }
-        } else {
-            const auto c = palette().color(QPalette::Active, QPalette::Highlight).darker(150);
-            const auto uy = y + 3;
-            const auto h = 2;
-
-            switch (viewByte.posType) {
-                case RangePosType::None : break;
-                case RangePosType::Single : {
-                    p.fillRect(x, uy, m_charMetrics.hexWidth, h, c);
-                    break;
-                }
-                case RangePosType::Start : {
-                    const auto w = i + 1 == endIdx ? m_charMetrics.hexWidth : m_charMetrics.blockWidth;
-                    p.fillRect(x, uy, w, h, c);
-                    break;
-                }
-                case RangePosType::Middle : {
-                    const auto w = i + 1 == endIdx ? m_charMetrics.hexWidth : m_charMetrics.blockWidth;
-                    p.fillRect(x, uy, w, h, c);
-                    break;
-                }
-                case RangePosType::End : {
-                    p.fillRect(x, uy, m_charMetrics.hexWidth, h, c);
-                    break;
-                }
-            }
-        }
-
-        if (viewByte.posType == RangePosType::None) {
-            p.setPen(palette().color(QPalette::Disabled, QPalette::Text));
-        } else {
-            p.setPen(palette().color(QPalette::Active, QPalette::Text));
-        }
-
-        p.drawStaticText(x, y - m_charMetrics.ascent, m_hexTable.at(viewByte.byte));
-        p.setPen(palette().color(QPalette::Active, QPalette::Text));
-
-        x += m_charMetrics.blockWidth;
     }
 }
 
@@ -285,17 +325,17 @@ quint32 HexView::scrollPosition() const
 
 void HexView::resizeEvent(QResizeEvent *)
 {
-    if (m_data.isEmpty()) {
+    if (m_data == nullptr) {
         return;
     }
 
-    const auto max = qMax(0u, m_totalLines - maxLinesPerView());
+    const auto max = qMax(0u, (quint32)m_totalLines - maxLinesPerView());
     verticalScrollBar()->setMaximum(int(max));
 }
 
 void HexView::mousePressEvent(QMouseEvent *e)
 {
-    if (m_data.isEmpty()) {
+    if (m_data == nullptr) {
         return;
     }
 

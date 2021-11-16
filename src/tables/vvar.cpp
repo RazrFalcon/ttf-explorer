@@ -1,4 +1,4 @@
-#include "src/parser.h"
+#include "src/algo.h"
 #include "tables.h"
 
 void parseVvar(Parser &parser)
@@ -8,45 +8,72 @@ void parseVvar(Parser &parser)
     const auto majorVersion = parser.read<UInt16>("Major version");
     const auto minorVersion = parser.read<UInt16>("Minor version");
     if (!(majorVersion == 1 && minorVersion == 0)) {
-        throw "invalid table version";
+        throw QString("invalid table version");
     }
 
     const auto varStoreOffset = parser.read<Offset32>("Item variation store offset");
-    const auto advanceHeightMappingOffset = parser.read<std::optional<Offset32>>("Advance height mapping offset");
-    const auto tsbMappingOffset = parser.read<std::optional<Offset32>>("Top side bearing mapping offset");
-    const auto bsbMappingOffset = parser.read<std::optional<Offset32>>("Bottom side bearing mapping offset");
-    const auto vOrgMappingOffset = parser.read<std::optional<Offset32>>("Vertical origin mapping offset");
+    const auto advanceHeightMappingOffset = parser.read<OptionalOffset32>("Advance height mapping offset");
+    const auto tsbMappingOffset = parser.read<OptionalOffset32>("Top side bearing mapping offset");
+    const auto bsbMappingOffset = parser.read<OptionalOffset32>("Bottom side bearing mapping offset");
+    const auto vOrgMappingOffset = parser.read<OptionalOffset32>("Vertical origin mapping offset");
 
-    parser.jumpTo(start + varStoreOffset);
-    parser.beginGroup("Item variation store");
-    parseItemVariationStore(parser);
-    parser.endGroup();
+    enum class OffsetType {
+        VariationStore,
+        Advance,
+        Tsb,
+        Bsb,
+        Vorg,
+    };
+    struct Offset {
+        OffsetType type;
+        quint32 offset;
+    };
+    std::array<Offset, 5> offsets = {{
+        { OffsetType::VariationStore, (quint32)varStoreOffset },
+        { OffsetType::Advance, (quint32)advanceHeightMappingOffset },
+        { OffsetType::Tsb, (quint32)tsbMappingOffset },
+        { OffsetType::Bsb, (quint32)bsbMappingOffset },
+        { OffsetType::Vorg, (quint32)vOrgMappingOffset },
+    }};
 
-    if (advanceHeightMappingOffset.has_value()) {
-        parser.jumpTo(start + advanceHeightMappingOffset.value());
-        parser.beginGroup("Advance height mapping");
-        parseHvarDeltaSet(parser);
-        parser.endGroup();
-    }
+    algo::sort_all_by_key(offsets, &Offset::offset);
 
-    if (tsbMappingOffset.has_value()) {
-        parser.jumpTo(start + tsbMappingOffset.value());
-        parser.beginGroup("Top side bearing mapping");
-        parseHvarDeltaSet(parser);
-        parser.endGroup();
-    }
+    for (const auto offset : offsets) {
+        if (offset.offset == 0) {
+            continue;
+        }
 
-    if (bsbMappingOffset.has_value()) {
-        parser.jumpTo(start + bsbMappingOffset.value());
-        parser.beginGroup("Bottom side bearing mapping");
-        parseHvarDeltaSet(parser);
-        parser.endGroup();
-    }
-
-    if (vOrgMappingOffset.has_value()) {
-        parser.jumpTo(start + vOrgMappingOffset.value());
-        parser.beginGroup("Vertical origin mapping");
-        parseHvarDeltaSet(parser);
-        parser.endGroup();
+        parser.advanceTo(start + offset.offset);
+        switch (offset.type) {
+        case OffsetType::VariationStore: {
+            parser.beginGroup("Item Variation Store");
+            parseItemVariationStore(parser);
+            parser.endGroup();
+            break;
+        }
+        case OffsetType::Advance: {
+            parser.beginGroup("Advance Height Mapping");
+            parseHvarDeltaSet(parser);
+            parser.endGroup();
+            break;
+        }
+        case OffsetType::Tsb:
+            parser.beginGroup("Top Side Bearing Mapping");
+            parseHvarDeltaSet(parser);
+            parser.endGroup();
+            break;
+        case OffsetType::Bsb: {
+            parser.beginGroup("Bottom Side Bearing Mapping");
+            parseHvarDeltaSet(parser);
+            parser.endGroup();
+            break;
+        }
+        case OffsetType::Vorg: {
+            parser.beginGroup("Vertical Origin Mapping");
+            parseHvarDeltaSet(parser);
+            parser.endGroup();
+            break;
+        }
+        }
     }
 }

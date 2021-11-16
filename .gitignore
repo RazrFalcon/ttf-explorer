@@ -1,0 +1,7 @@
+*.pro.user
+.directory
+.DS_Store
+*.o
+moc_*.cpp
+moc_*.h
+Makefile

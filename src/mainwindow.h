@@ -4,9 +4,11 @@
 #include <QLabel>
 #include <QTreeView>
 #include <QMainWindow>
+#include <QFile>
 
-#include "src/hexview.h"
-#include "src/treemodel.h"
+#include "parser.h"
+#include "hexview.h"
+#include "treemodel.h"
 
 class MainWindow : public QMainWindow
 {
@@ -15,16 +17,18 @@ class MainWindow : public QMainWindow
 public:
     explicit MainWindow(QWidget *parent = nullptr);
 
+    void loadFile(const QString &filePath);
+
 private:
     void onStart();
     void onOpenFile();
-    void loadFile(const QString &path);
     void onTreeSelectionChanged(const QItemSelection &selected, const QItemSelection &deselected);
-    void onHexViewByteClicked(const uint index);
 
 private:
     HexView * const m_hexView;
     QTreeView * const m_treeView;
     QLabel * const m_lblStatus;
     QScopedPointer<TreeModel> m_model;
+    QString m_currentPath;
+    QFile m_file;
 };

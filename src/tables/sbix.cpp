@@ -1,7 +1,6 @@
 #include <bitset>
 
 #include "src/algo.h"
-#include "src/parser.h"
 #include "tables.h"
 
 struct SbixFlags
@@ -28,7 +27,8 @@ struct SbixFlags
     quint16 d;
 };
 
-const QString SbixFlags::Type = "BitFlags";
+const QString SbixFlags::Type = Parser::BitflagsType;
+
 
 void parseSbix(const quint16 numberOfGlyphs, Parser &parser)
 {
@@ -36,55 +36,52 @@ void parseSbix(const quint16 numberOfGlyphs, Parser &parser)
 
     const auto version = parser.read<UInt16>("Version");
     if (version != 1) {
-        throw "invalid table version";
+        throw QString("invalid table version");
     }
 
     parser.read<SbixFlags>("Flags");
     const auto numStrikes = parser.read<UInt32>("Number of bitmap strikes");
 
     QVector<quint32> offsets;
-    parser.beginGroup("Offsets", QString::number(numStrikes));
-    for (quint32 i = 0; i < numStrikes; ++i) {
-        offsets << parser.read<Offset32>("Offset " + QString::number(i));
-    }
-    parser.endGroup();
+    parser.readArray("Offsets", numStrikes, [&](const auto index){
+        offsets << parser.read<Offset32>(index);
+    });
 
     algo::sort_all(offsets);
     algo::dedup_vector(offsets);
 
     QVector<quint32> glyphOffsets;
-
-    for (const auto offset : offsets) {
+    parser.readArray("Strikes", offsets.size(), [&](const auto index){
         glyphOffsets.clear();
 
-        parser.jumpTo(start + offset);
-        parser.beginGroup("Strike");
+        const auto offset = offsets[index];
+        parser.advanceTo(start + offset);
+        parser.beginGroup(index);
 
         parser.read<UInt16>("PPEM");
         parser.read<UInt16>("PPI");
 
-        parser.beginGroup("Offsets", QString::number(numberOfGlyphs));
-        for (quint32 i = 0; i <= numberOfGlyphs; ++i) {
-            glyphOffsets << parser.read<Offset32>("Offset " + QString::number(i));
-        }
-        parser.endGroup();
+        QVector<quint32> offsets;
+        parser.readArray("Offsets", numberOfGlyphs + 1, [&](const auto index){
+            glyphOffsets << parser.read<Offset32>(index);
+        });
 
         algo::sort_all(glyphOffsets);
         algo::dedup_vector(glyphOffsets);
 
         // The last offset is the end byte of the last glyph.
-        for (int i = 0; i < glyphOffsets.size() - 1; ++i) {
-            const auto dataSize = glyphOffsets.at(i + 1) - glyphOffsets.at(i);
+        parser.readArray("Glyphs", glyphOffsets.size() - 1, [&](const auto index){
+            const auto dataSize = glyphOffsets.at(index + 1) - glyphOffsets.at(index);
 
-            parser.beginGroup("Glyph data");
-            parser.jumpTo(start + offset + glyphOffsets.at(i));
+            parser.beginGroup(index);
+            parser.advanceTo(start + offset + glyphOffsets.at(index));
             parser.read<Int16>("Horizontal offset");
             parser.read<Int16>("Vertical offset");
             parser.read<Tag>("Type");
-            parser.readBytes(dataSize - 8, "Data");
+            parser.readBytes("Data", dataSize - 8);
             parser.endGroup();
-        }
+        });
 
         parser.endGroup();
-    }
+    });
 }

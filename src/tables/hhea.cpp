@@ -1,4 +1,3 @@
-#include "src/parser.h"
 #include "tables.h"
 
 void parseHhea(Parser &parser)
@@ -7,7 +6,7 @@ void parseHhea(Parser &parser)
     const auto minorVersion = parser.read<UInt16>("Minor version");
 
     if (!(majorVersion == 1 && minorVersion == 0)) {
-        throw "invalid table version";
+        throw QString("invalid table version");
     }
 
     parser.read<Int16>("Typographic ascent");
@@ -26,10 +25,4 @@ void parseHhea(Parser &parser)
     parser.read<Int16>("Reserved");
     parser.read<Int16>("Metric data format");
     parser.read<UInt16>("Number of horizontal metrics");
-}
-
-quint16 parseHheaNumberOfMetrics(ShadowParser parser)
-{
-    parser.jumpTo(34);
-    return parser.read<UInt16>();
 }
