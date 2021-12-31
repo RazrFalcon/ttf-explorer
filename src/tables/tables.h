@@ -33,6 +33,7 @@ void parsePost(Parser &parser);
 void parseSbix(const quint16 numberOfGlyphs, Parser &parser);
 void parseStat(const NamesHash &names, Parser &parser);
 void parseSvg(Parser &parser);
+void parseTrak(const NamesHash &names, Parser &parser);
 void parseVhea(Parser &parser);
 void parseVmtx(const quint16 numberOfMetrics, const quint16 numberOfGlyphs, Parser &parser);
 void parseVorg(Parser &parser);

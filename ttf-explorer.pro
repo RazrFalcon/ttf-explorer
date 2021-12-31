@@ -43,6 +43,7 @@ SOURCES += \
     src/tables/sbix.cpp \
     src/tables/stat.cpp \
     src/tables/svg.cpp \
+    src/tables/trak.cpp \
     src/tables/vhea.cpp \
     src/tables/vmtx.cpp \
     src/tables/vorg.cpp \
