@@ -2,6 +2,9 @@
 
 #include <QVector>
 
+#include <optional>
+#include <algorithm>
+
 namespace algo {
 
 // From http://reedbeta.com/blog/python-like-enumerate-in-cpp17/

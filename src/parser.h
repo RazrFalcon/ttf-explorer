@@ -6,6 +6,7 @@
 #include <QtEndian>
 
 #include <algorithm>
+#include <array>
 #include <charconv>
 #include <memory>
 #include <optional>

@@ -190,7 +190,7 @@ void HexView::drawView(QPainter &p) const
     const int maxH = r.height() + m_charMetrics.height + 4;
     for (int y = m_charMetrics.height; y < maxH; y += m_charMetrics.height + 4) {
         const quint32 startIdx = lineIdx * BytesPerLine;
-        const quint32 endIdx = quint32(qMin(startIdx + BytesPerLine, m_dataSize));
+        const quint32 endIdx = qMin(startIdx + BytesPerLine, quint32(m_dataSize));
 
         int x = m_charMetrics.padding;
         for (quint32 i = startIdx; i < endIdx; ++i) {

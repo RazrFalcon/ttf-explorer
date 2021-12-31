@@ -3,6 +3,8 @@
 #include <QAbstractScrollArea>
 #include <QStaticText>
 
+#include <optional>
+
 #include "range.h"
 
 class HexView : public QAbstractScrollArea

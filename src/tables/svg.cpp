@@ -1,60 +1,6 @@
-#include <zlib.h>
-
 #include "src/algo.h"
 #include "src/parser.h"
 #include "tables.h"
-
-// https://stackoverflow.com/a/7351507
-static QByteArray gUncompress(const QByteArray &data)
-{
-    if (data.size() <= 4) {
-        qWarning("gUncompress: Input data is truncated");
-        return QByteArray();
-    }
-
-    QByteArray result;
-
-    int ret;
-    z_stream strm;
-    static const uint CHUNK_SIZE = 1024;
-    char out[CHUNK_SIZE];
-
-    /* allocate inflate state */
-    strm.zalloc = Z_NULL;
-    strm.zfree = Z_NULL;
-    strm.opaque = Z_NULL;
-    strm.avail_in = quint32(data.size());
-    strm.next_in = (Bytef*)data.data();
-
-    ret = inflateInit2(&strm, 15 +  32); // gzip decoding
-    if (ret != Z_OK) {
-        return QByteArray();
-    }
-
-    do {
-        strm.avail_out = CHUNK_SIZE;
-        strm.next_out = (Bytef*)(out);
-
-        ret = inflate(&strm, Z_NO_FLUSH);
-        Q_ASSERT(ret != Z_STREAM_ERROR);  // state not clobbered
-
-        switch (ret) {
-        case Z_NEED_DICT:
-            ret = Z_DATA_ERROR; // and fall through
-        [[fallthrough]];
-        case Z_DATA_ERROR:
-        case Z_MEM_ERROR:
-            (void)inflateEnd(&strm);
-            return QByteArray();
-        }
-
-        result.append(out, int(CHUNK_SIZE - strm.avail_out));
-    } while (strm.avail_out == 0);
-
-    // clean up and return
-    inflateEnd(&strm);
-    return result;
-}
 
 void parseSvg(Parser &parser)
 {
@@ -90,10 +36,7 @@ void parseSvg(Parser &parser)
 
         if (parser.peek<UInt16>() == 8075) {
             // Read gzip compressed SVG as is.
-            auto shadow = parser.shadow();
-            const auto gzipData = shadow.readBytes(range.size());
-            const auto value = QString::fromUtf8(gUncompress(gzipData));
-            parser.readValue("SVGZ", value, Parser::BytesType, range.size());
+            parser.readBytes("SVGZ", range.size());
         } else {
             // Otherwise read as string.
             // According to the spec, it must be in UTF-8, so we are fine.

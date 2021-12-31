@@ -10,7 +10,8 @@ equals(QMAKE_CXX, clang++) {
     QMAKE_CXXFLAGS += -Wextra -Wpedantic -Wimplicit-fallthrough -Wconversion
 }
 
-LIBS += -lz
+# required to make C++17 work on macOS
+mac:QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.15
 
 SOURCES += \
     src/hexview.cpp \

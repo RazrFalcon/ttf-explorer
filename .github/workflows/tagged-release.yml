@@ -1,0 +1,106 @@
+name: "Tagged Release"
+
+on:
+  push:
+    tags:
+      - "*"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: ${{ github.ref }}
+          body: ""
+          draft: false
+          prerelease: false
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+
+  release-windows:
+    name: Release Windows
+    runs-on: windows-2019
+    needs: ["create-release"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v2
+        with:
+          version: '5.15.2'
+
+      - name: Prepare Developer Command Prompt for MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build
+        run: |
+          qmake
+          nmake
+          mkdir ttf-explorer-bin
+          cp release/ttf-explorer.exe ttf-explorer-bin/ttf-explorer.exe
+          windeployqt --no-translations ttf-explorer-bin/ttf-explorer.exe
+          del ttf-explorer-bin/libGLESv2.dll
+          del ttf-explorer-bin/libEGL.dll
+          del ttf-explorer-bin/d3dcompiler_47.dll
+          del ttf-explorer-bin/opengl32sw.dll
+          Remove-Item "ttf-explorer-bin/iconengines" -Recurse
+          Remove-Item "ttf-explorer-bin/imageformats" -Recurse
+          cd ttf-explorer-bin
+          7z a -tzip -mx9 ttf-explorer-win64.zip *
+
+      - name: Collect
+        run: |
+          mkdir bin
+          cp ttf-explorer-bin/ttf-explorer-win64.zip bin/
+
+      - name: Upload binaries
+        uses: alexellis/upload-assets@0.2.2
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          asset_paths: '["bin/*"]'
+
+  release-macos:
+    name: Release macOS
+    runs-on: macos-10.15
+    needs: ["create-release"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v2
+        with:
+          version: '5.15.2'
+
+      - name: Build
+        run: |
+          qmake
+          make
+          macdeployqt ttf-explorer.app
+          rm -r ttf-explorer.app/Contents/Plugins/iconengines
+          rm -r ttf-explorer.app/Contents/Plugins/imageformats
+          7z a -tzip -mx9 ttf-explorer-macos-x86_64.zip ttf-explorer.app
+
+      - name: Collect
+        run: |
+          mkdir bin
+          cp ttf-explorer-macos-x86_64.zip bin/
+
+      - name: Upload binaries
+        uses: alexellis/upload-assets@0.2.2
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          asset_paths: '["bin/*"]'
