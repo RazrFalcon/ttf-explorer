@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2021-12-31
 ### Added
 - The **Size** column for groups.
 - A dedicated array group type.
@@ -20,4 +21,5 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
   optimize strings allocations.
 - Many performance optimizations.
 
-[Unreleased]: https://github.com/RazrFalcon/ttf-explorer/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/RazrFalcon/ttf-explorer/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/RazrFalcon/rustybuzz/compare/v0.1.0...v0.2.0
