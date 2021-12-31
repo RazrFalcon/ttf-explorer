@@ -228,6 +228,7 @@ static QStringList parseTables(const int numberOfFaces, const QVector<FontTable>
             case FOURCC("cmap"): parseCmap(parser); break;
             case FOURCC("EBDT"): parseCbdt(fd.eblcLocations, parser); break;
             case FOURCC("EBLC"): parseCblc(parser); break;
+            case FOURCC("feat"): parseFeat(fd.names, parser); break;
             case FOURCC("fvar"): parseFvar(fd.names, parser); break;
             case FOURCC("GDEF"): parseGdef(parser); break;
             case FOURCC("glyf"): parseGlyf(fd.numberOfGlyphs, fd.locaOffsets, parser); break;
