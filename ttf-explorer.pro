@@ -18,6 +18,8 @@ SOURCES += \
     src/main.cpp \
     src/mainwindow.cpp \
     src/parser.cpp \
+    src/tables/aat-common.cpp \
+    src/tables/ankr.cpp \
     src/tables/avar.cpp \
     src/tables/cbdt.cpp \
     src/tables/cblc.cpp \
@@ -59,6 +61,7 @@ HEADERS += \
     src/mainwindow.h \
     src/parser.h \
     src/range.h \
+    src/tables/aat-common.h \
     src/tables/cff.h \
     src/tables/name.h \
     src/tables/tables.h \

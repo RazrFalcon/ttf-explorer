@@ -8,6 +8,7 @@ struct CblcIndex
     Range range;
 };
 
+void parseAnkr(const quint16 numberOfGlyphs, Parser &parser);
 void parseAvar(Parser &parser);
 void parseCbdt(const QVector<CblcIndex> &cblcLocations, Parser &parser);
 void parseCblc(Parser &parser);

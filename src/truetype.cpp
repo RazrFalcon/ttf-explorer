@@ -218,6 +218,7 @@ static QStringList parseTables(const int numberOfFaces, const QVector<FontTable>
             const CommonFaceData &fd = facesData[table.faceIndex];
 
             switch (table.tag.d) {
+            case FOURCC("ankr"): parseAnkr(fd.numberOfGlyphs, parser); break;
             case FOURCC("avar"): parseAvar(parser); break;
             case FOURCC("bdat"): parseCbdt(fd.blocLocations, parser); break;
             case FOURCC("bloc"): parseCblc(parser); break;

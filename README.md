@@ -20,6 +20,7 @@ You can find prebuilt versions in
 
 ## Supported tables
 
+ankr,
 avar,
 bdat,
 bloc,
