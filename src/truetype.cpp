@@ -9,8 +9,8 @@ struct FontTable
 {
     quint32 faceIndex;
     Tag tag;
-    uint32_t offset;
-    uint32_t length;
+    quint32 offset;
+    quint32 length;
 };
 
 static QString tableName(const Tag tag) {
@@ -229,7 +229,7 @@ static QStringList parseTables(const int numberOfFaces, const QVector<FontTable>
             case FOURCC("cmap"): parseCmap(parser); break;
             case FOURCC("EBDT"): parseCbdt(fd.eblcLocations, parser); break;
             case FOURCC("EBLC"): parseCblc(parser); break;
-            case FOURCC("feat"): parseFeat(fd.names, parser); break;
+            case FOURCC("feat"): parseFeat(fd.names, table.length, parser); break;
             case FOURCC("fvar"): parseFvar(fd.names, parser); break;
             case FOURCC("GDEF"): parseGdef(parser); break;
             case FOURCC("glyf"): parseGlyf(fd.numberOfGlyphs, fd.locaOffsets, parser); break;

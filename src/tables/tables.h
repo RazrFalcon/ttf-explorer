@@ -15,7 +15,7 @@ void parseCblc(Parser &parser);
 void parseCff(Parser &parser);
 void parseCff2(Parser &parser);
 void parseCmap(Parser &parser);
-void parseFeat(const NamesHash &names, Parser &parser);
+void parseFeat(const NamesHash &names, const quint32 tableSize, Parser &parser);
 void parseFvar(const NamesHash &names, Parser &parser);
 void parseGdef(Parser &parser);
 void parseGlyf(const quint16 numberOfGlyphs, const QVector<quint32> &glyphOffsets, Parser &parser);

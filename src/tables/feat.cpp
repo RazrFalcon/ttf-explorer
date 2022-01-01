@@ -31,7 +31,7 @@ struct Flags
 const QString Flags::Type = Parser::BitflagsType;
 
 
-void parseFeat(const NamesHash &names, Parser &parser)
+void parseFeat(const NamesHash &names, const quint32 tableSize, Parser &parser)
 {
     parser.read<F16DOT16>("Version");
     const auto numberOfFeatures = parser.read<UInt16>("Number of features");
@@ -42,12 +42,19 @@ void parseFeat(const NamesHash &names, Parser &parser)
     parser.readArray("Feature Name Array", numberOfFeatures, [&](const auto index){
         parser.beginGroup(index);
         parser.read<UInt16>("Type");
-        numberOfSettings += parser.read<UInt16>("Number of settings");
-        parser.read<Offset32>("Offset to setting name array");
+        const auto localNumberOfSettings = parser.read<UInt16>("Number of settings");
+        const auto offset = parser.read<Offset32>("Offset to setting name array");
         parser.read<Flags>("Flags");
         parser.read<UInt8>("Default setting index");
         const auto name = parser.readNameId("Name ID", names);
         parser.endGroup(QString(), name);
+
+        // Some Apple fonts have offset to setting name array beyond the `feat` table.
+        // This is probably an Apple bug or some undocumented feature.
+        // Simply skip such settings for now.
+        if (offset < tableSize) {
+            numberOfSettings += localNumberOfSettings;
+        }
     });
 
     parser.readArray("Setting Name Array", numberOfSettings, [&](const auto index){
