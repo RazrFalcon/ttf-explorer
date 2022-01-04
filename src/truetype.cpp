@@ -296,7 +296,7 @@ QStringList TrueType::parse(Parser &parser)
         parser.read<UInt32>("Magic");
         const auto majorVersion = parser.read<UInt16>("Major version");
         parser.read<UInt16>("Minor version");
-        numberOfFaces = parser.read<UInt32>("Number of fonts");
+        numberOfFaces = parser.read<UInt32>("Number of faces");
 
         QVector<quint32> offsets;
         parser.readArray("Offsets", numberOfFaces, [&](const auto index) {

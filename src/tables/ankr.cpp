@@ -7,8 +7,8 @@ void parseAnkr(const quint16 numberOfGlyphs, Parser &parser)
 
     parser.read<UInt16>("Version");
     parser.read<UInt16>("Unused");
-    const quint32 lookupTableOffset = parser.read<OptionalOffset32>("Offset to lookup table");
-    const quint32 glyphDataTableOffset = parser.read<OptionalOffset32>("Offset to glyph data table");
+    const quint32 lookupTableOffset = parser.read<OptionalOffset32>("Offset to Lookup Table");
+    const quint32 glyphDataTableOffset = parser.read<OptionalOffset32>("Offset to Glyphs Data");
 
     if (lookupTableOffset == 0) {
         throw QString("invalid lookup table offset");
@@ -21,6 +21,7 @@ void parseAnkr(const quint16 numberOfGlyphs, Parser &parser)
         return;
     }
 
+    parser.padTo(tableStart + glyphDataTableOffset);
     parser.readArray("Glyphs Data", offsets.size(), [&](const auto index){
         parser.advanceTo(tableStart + glyphDataTableOffset + offsets[index]);
         parser.beginGroup(index);

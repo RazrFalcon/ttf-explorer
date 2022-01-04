@@ -7,7 +7,7 @@ static void parseAatBinarySearchTable(const quint16 format, Parser &parser, F f)
 {
     parser.beginGroup("Binary Search Table");
     parser.read<UInt16>("Segment size");
-    quint16 numberOfSegments = parser.read<UInt16>("Number of segment");
+    quint16 numberOfSegments = parser.read<UInt16>("Number of segments");
     parser.read<UInt16>("Search range");
     parser.read<UInt16>("Entry selector");
     parser.read<UInt16>("Range shift");
